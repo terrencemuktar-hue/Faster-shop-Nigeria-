@@ -519,10 +519,11 @@ export default function HomePage() {
         {mode === 'shop' && (
           <>
             <nav className="market-nav" aria-label="Main navigation">
-              <a href="#">Home</a>
-              <a href="#">New arrivals</a>
-              <a href="#">Vendors</a>
-              <a href="#">Markets</a>
+            <button type="button" className={`nav-link ${mode === 'shop' ? 'active' : ''}`} onClick={() => setMode('shop')}>Home</button>
+<button type="button" className={`nav-link ${mode === 'new-arrivals' ? 'active' : ''}`} onClick={() => setMode('new-arrivals')}>New arrivals</button>
+<button type="button" className={`nav-link ${mode === 'vendors' ? 'active' : ''}`} onClick={() => setMode('vendors')}>Vendors</button>
+<button type="button" className={`nav-link ${mode === 'markets' ? 'active' : ''}`} onClick={() => setMode('markets')}>Markets</button>
+
             </nav>
             <div className="market-actions">
               <button className="icon-button" aria-label="Search products">
