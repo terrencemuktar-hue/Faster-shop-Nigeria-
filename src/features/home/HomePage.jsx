@@ -522,7 +522,7 @@ export default function HomePage() {
             <nav className="market-nav" aria-label="Main navigation">
             <button type="button" className={`nav-link ${mode === 'shop' ? 'active' : ''}`} onClick={() => setMode('shop')}>Home</button>
 <button type="button" className={`nav-link ${mode === 'new-arrivals' ? 'active' : ''}`} onClick={() => setMode('new-arrivals')}>New arrivals</button>
-<button type="button" className={`nav-link ${mode === 'vendors' ? 'active' : ''}`} onClick={() => setMode('vendors')}>Vendors</button>
+<button type="button" className={`nav-link ${mode === 'vendor' ? 'active' : ''}`} onClick={() => setMode('vendors')}>Vendors</button>
 <button type="button" className={`nav-link ${mode === 'markets' ? 'active' : ''}`} onClick={() => setMode('markets')}>Markets</button>
 
             </nav>
