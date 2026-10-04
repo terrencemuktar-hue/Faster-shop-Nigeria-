@@ -516,7 +516,8 @@ export default function HomePage() {
           </button>
         </div>
 
-        {mode === 'shop' && (
+        {(mode === 'shop' || mode === 'new-arrivals' || mode === 'vendors' || mode === 'markets') && (
+
           <>
             <nav className="market-nav" aria-label="Main navigation">
             <button type="button" className={`nav-link ${mode === 'shop' ? 'active' : ''}`} onClick={() => setMode('shop')}>Home</button>
