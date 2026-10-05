@@ -1,138 +1,177 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { signOut } from 'firebase/auth';
+import { auth } from '../../lib/firebase';
+import { ShoppingBag, Store, ShoppingCart, Trash2 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext.jsx';
-import { upsertProduct } from '../../lib/firestore.js';
+import { subscribeProducts, createOrderRecord } from '../../lib/firestore.js';
+import VendorDashboard from '../vendor/VendorDashboard';
 
-export default function VendorDashboard() {
+export default function HomePage() {
   const { user } = useAuth();
-  const [productName, setProductName] = useState('');
-  const [price, setPrice] = useState('');
-  const [category, setCategory] = useState('Fashion & Apparel');
-  const [imageUrl, setImageUrl] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [mode, setMode] = useState('shop');
+  const [products, setProducts] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [orderMessage, setOrderMessage] = useState('');
 
-  const handleAddProduct = async (e) => {
-    e.preventDefault();
-    if (!productName || !price) {
-      setMessage('Please enter a product name and price.');
-      return;
-    }
+  // Subscribe to real-time products from Firestore
+  useEffect(() => {
+    const unsubscribe = subscribeProducts((liveProducts) => {
+      setProducts(liveProducts || []);
+    });
+    return () => unsubscribe();
+  }, []);
 
-    setLoading(true);
-    setMessage('');
-
+  const handleLogout = async () => {
     try {
-      const productData = {
-        name: productName,
-        price: Number(price),
-        category: category,
-        imageUrl: imageUrl || 'https://via.placeholder.com/300',
-        vendorId: user?.uid || 'anonymous',
+      await signOut(auth);
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
+  const addToCart = (product) => {
+    setCart((prev) => [...prev, product]);
+  };
+
+  const removeFromCart = (index) => {
+    setCart((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const calculateTotal = () => {
+    return cart.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+  };
+
+  const handleCheckout = async () => {
+    if (cart.length === 0) return;
+    try {
+      const orderData = {
+        buyerUid: user?.uid || 'guest',
+        buyerEmail: user?.email || 'guest@fasterapp.com',
+        items: cart,
+        totalAmount: calculateTotal(),
+        status: 'pending',
         createdAt: new Date().toISOString()
       };
-
-      await upsertProduct(productData);
-      setMessage(`Success! "${productName}" is now live in the store.`);
-      setProductName('');
-      setPrice('');
-      setImageUrl('');
+      await createOrderRecord(orderData);
+      setOrderMessage('🎉 Order placed successfully!');
+      setCart([]);
     } catch (err) {
-      setMessage(`Error saving product: ${err.message}`);
-    } finally {
-      setLoading(false);
+      setOrderMessage(`Checkout failed: ${err.message}`);
     }
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px', backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
-      <h2 style={{ marginBottom: '4px' }}>🏪 Vendor Dashboard</h2>
-      <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
-        Store Owner: <strong>{user?.email || 'Vendor'}</strong>
-      </p>
-
-      {message && (
-        <div style={{
-          padding: '12px',
-          backgroundColor: message.startsWith('Error') ? '#ffebee' : '#e8f5e9',
-          color: message.startsWith('Error') ? '#c62828' : '#2e7d32',
-          borderRadius: '6px',
-          marginBottom: '16px',
-          fontSize: '14px'
-        }}>
-          {message}
-        </div>
-      )}
-
-      <h3>Add Product to Store</h3>
-      <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '14px' }}>
-        <div>
-          <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>Product Title</label>
-          <input
-            type="text"
-            required
-            placeholder="e.g. Designer Jacket, Leather Bag, Shoes"
-            value={productName}
-            onChange={(e) => setProductName(e.target.value)}
-            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
-          />
+    <div className="marketplace-shell" style={{ fontFamily: 'sans-serif', backgroundColor: '#f9f9f9', minHeight: '100vh' }}>
+      <header className="market-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', backgroundColor: '#fff', borderBottom: '1px solid #eee' }}>
+        <div className="brand brand--market" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '20px' }}>
+          <ShoppingBag size={22} />
+          <span>faster<span style={{ color: '#0066cc' }}>shop</span></span>
         </div>
 
-        <div>
-          <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>Price (₦)</label>
-          <input
-            type="number"
-            required
-            placeholder="e.g. 25000"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
-          />
-        </div>
-
-        <div>
-          <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>Category</label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
+        <div className="market-mode-switcher" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button 
+            onClick={() => setMode('shop')}
+            style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #ccc', cursor: 'pointer', backgroundColor: mode === 'shop' ? '#000' : '#fff', color: mode === 'shop' ? '#fff' : '#000', fontWeight: 'bold' }}
           >
-            <option value="Fashion & Apparel">Fashion & Apparel</option>
-            <option value="Footwear & Shoes">Footwear & Shoes</option>
-            <option value="Jewelry & Accessories">Jewelry & Accessories</option>
-            <option value="Bags & Leather Goods">Bags & Leather Goods</option>
-            <option value="Hair & Beauty Products">Hair & Beauty Products</option>
-            <option value="Food & Delivery">Food & Delivery</option>
-          </select>
-        </div>
+            <ShoppingBag size={15} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Shop
+          </button>
+          
+          <button 
+            onClick={() => setMode('vendor')}
+            style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #ccc', cursor: 'pointer', backgroundColor: mode === 'vendor' ? '#000' : '#fff', color: mode === 'vendor' ? '#fff' : '#000', fontWeight: 'bold' }}
+          >
+            <Store size={15} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Vendor
+          </button>
 
-        <div>
-          <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>Image URL (Optional)</label>
-          <input
-            type="url"
-            placeholder="https://example.com/item.jpg"
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
-          />
+          <button 
+            onClick={handleLogout}
+            style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            Log Out
+          </button>
         </div>
+      </header>
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: '12px',
-            backgroundColor: '#000',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '6px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            marginTop: '8px'
-          }}
-        >
-          {loading ? 'Publishing Item...' : 'Publish Product'}
-        </button>
-      </form>
+      <main style={{ padding: '24px', maxWidth: '1100px', margin: '0 auto' }}>
+        {mode === 'vendor' ? (
+          <VendorDashboard />
+        ) : (
+          <div>
+            {orderMessage && (
+              <div style={{ padding: '12px', backgroundColor: '#e8f5e9', color: '#2e7d32', borderRadius: '8px', marginBottom: '20px', fontWeight: 'bold', textAlign: 'center' }}>
+                {orderMessage}
+              </div>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: cart.length > 0 ? '2fr 1fr' : '1fr', gap: '24px' }}>
+              <div>
+                <h2 style={{ marginBottom: '16px' }}>🛍️ Marketplace Products</h2>
+                {products.length === 0 ? (
+                  <p style={{ color: '#666' }}>No products published yet. Switch to the Vendor tab to add the first item!</p>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
+                    {products.map((item) => (
+                      <div key={item.id} style={{ border: '1px solid #e0e0e0', borderRadius: '10px', padding: '16px', backgroundColor: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        <div>
+                          <img 
+                            src={item.imageUrl || 'https://via.placeholder.com/200'} 
+                            alt={item.name} 
+                            style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '8px', marginBottom: '12px' }} 
+                          />
+                          <h4 style={{ margin: '0 0 6px 0' }}>{item.name}</h4>
+                          <p style={{ margin: '0 0 12px 0', fontWeight: 'bold', color: '#0066cc' }}>₦{Number(item.price).toLocaleString()}</p>
+                        </div>
+                        <button 
+                          onClick={() => addToCart(item)}
+                          style={{ width: '100%', padding: '10px', backgroundColor: '#000', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
+                        >
+                          Add to Cart
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {cart.length > 0 && (
+                <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '10px', border: '1px solid #e0e0e0', height: 'fit-content' }}>
+                  <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ShoppingCart size={20} /> Cart ({cart.length})
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                    {cart.map((item, index) => (
+                      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
+                        <div>
+                          <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{item.name}</div>
+                          <div style={{ fontSize: '12px', color: '#666' }}>₦{Number(item.price).toLocaleString()}</div>
+                        </div>
+                        <button 
+                          onClick={() => removeFromCart(index)} 
+                          style={{ background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer' }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Total:</span>
+                    <span>₦{calculateTotal().toLocaleString()}</span>
+                  </div>
+
+                  <button 
+                    onClick={handleCheckout}
+                    style={{ width: '100%', padding: '12px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                    Place Order
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
