@@ -1,6 +1,7 @@
-import AuthPage from './features/auth/AuthPage.jsx'
-import { useAuth } from './features/auth/AuthContext.jsx'
-import HomePage from './features/home/HomePage.jsx'
+import AuthPage from './features/auth/AuthPage';
+import { useAuth } from './features/auth/AuthContext.jsx';
+import HomePage from './features/home/HomePage.jsx';
+import { Analytics } from '@vercel/analytics/react';
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -9,5 +10,10 @@ export default function App() {
     return <div className="loading-state" role="status">Checking your account...</div>
   }
 
-  return user ? <HomePage /> : <AuthPage />
+  return (
+    <>
+      {user ? <HomePage /> : <AuthPage />}
+      <Analytics />
+    </>
+  )
 }

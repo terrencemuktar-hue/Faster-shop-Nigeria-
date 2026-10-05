@@ -516,7 +516,7 @@ export default function HomePage() {
           </button>
         </div>
 
-        {(mode === 'shop' || mode === 'new-arrivals' || mode === 'vendors' || mode === 'markets') && (
+        {(mode === 'shop' || mode === 'new-arrivals' || mode === 'vendor' || mode === 'markets') && (
 
           <>
             <nav className="market-nav" aria-label="Main navigation">
