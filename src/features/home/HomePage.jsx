@@ -210,7 +210,24 @@ const initialOrders = [
   },
 ]
 
-export default function HomePage() {
+export default function HomePage() {export default function HomePage() {  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
+  const { user } = useAuth(); // or whatever hooks are there
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
   const { user, profile } = useAuth()
   const [mode, setMode] = useState('shop')
   const [selectedProduct, setSelectedProduct] = useState(null)
@@ -510,7 +527,22 @@ export default function HomePage() {
         <div className="brand brand--market">
           <span className="brand__mark"><ShoppingBag size={18} /></span>
           <span>faster<span className="brand__shop">shop</span></span>
-        </div>
+        </div>          <button 
+            onClick={handleLogout}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#dc3545',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              marginLeft: '12px'
+            }}
+          >
+            Log Out
+          </button>
+
 
         <div className="market-mode-switcher" role="group" aria-label="Choose marketplace mode">
           <button className={mode === 'shop' ? 'market-mode-switcher__button market-mode-switcher__button--active' : 'market-mode-switcher__button'} type="button" aria-pressed={mode === 'shop'} onClick={() => setMode('shop')}>
