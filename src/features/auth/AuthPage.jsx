@@ -1,232 +1,230 @@
-import { useState } from 'react'
-import {
-  ArrowRight,
-  Eye,
-  EyeOff,
-  LogOut,
-  ShieldCheck,
-  ShoppingBag,
-  Sparkles,
-  Zap,
-} from 'lucide-react'
-import { isFirebaseConfigured } from '../../lib/firebase.js'
-import { useAuth } from './AuthContext.jsx'
-import {
-  createAccount,
-  signInWithEmail,
-  signInWithGoogle,
-  signOutUser,
-} from './authService.js'
+import React, { useState } from 'react';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword 
+} from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../../lib/firebase';
 
-const firebaseErrorMessages = {
-  'auth/email-already-in-use': 'There is already an account with this email.',
-  'auth/invalid-credential': 'That email and password combination did not match.',
-  'auth/invalid-email': 'Enter a valid email address.',
-  'auth/popup-closed-by-user': 'The Google sign-in window was closed before finishing.',
-  'auth/popup-blocked': 'Your browser blocked the Google sign-in window. Allow pop-ups and try again.',
-  'auth/weak-password': 'Choose a password with at least 6 characters.',
-  'auth/too-many-requests': 'Too many attempts. Wait a moment, then try again.',
-}
+export default function AuthPage() {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  
+  // Role & Vendor details state
+  const [role, setRole] = useState('buyer'); // 'buyer' or 'vendor'
+  const [storeName, setStoreName] = useState('');
+  const [category, setCategory] = useState('Fashion & Apparel');
 
-function getErrorMessage(error) {
-  return firebaseErrorMessages[error.code] ?? error.message ?? 'Something went wrong. Please try again.'
-}
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-function Brand({ inverse = false }) {
-  return (
-    <a className={`brand${inverse ? ' brand--inverse' : ''}`} href="/" aria-label="Faster Shop home">
-      <span className="brand__mark"><Zap size={18} fill="currentColor" /></span>
-      <span>faster<span className="brand__shop">shop</span></span>
-    </a>
-  )
-}
-
-export default function AuthPage({ initialRole = 'buyer', onContinue }) {
-  const { user, profile, loading } = useAuth()
-  const [mode, setMode] = useState('signup')
-  const [role, setRole] = useState(initialRole)
-  const [showPassword, setShowPassword] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
-  async function handleSubmit(event) {
-    event.preventDefault()
-    setError('')
-    setBusy(true)
-
-    const formData = new FormData(event.currentTarget)
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
     try {
-      if (mode === 'signup') {
-        await createAccount({
-          name: formData.get('name'),
-          email: formData.get('email'),
-          password: formData.get('password'),
-          role,
-          storeName: formData.get('storeName') || '',
-        })
+      if (isSignUp) {
+        if (role === 'vendor' && !storeName.trim()) {
+          throw new Error('Please enter your store name.');
+        }
+
+        // 1. Create Firebase Auth user
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // 2. Save user profile in Firestore
+        await setDoc(doc(db, 'users', user.uid), {
+          uid: user.uid,
+          email: user.email,
+          role: role,
+          createdAt: new Date().toISOString()
+        });
+
+        // 3. If vendor, create store entry in Firestore
+        if (role === 'vendor') {
+          await setDoc(doc(db, 'vendors', user.uid), {
+            vendorId: user.uid,
+            storeName: storeName.trim(),
+            category: category,
+            logoUrl: '',
+            isVerified: false,
+            createdAt: new Date().toISOString()
+          });
+        }
       } else {
-        await signInWithEmail({
-          email: formData.get('email'),
-          password: formData.get('password'),
-        })
+        // Sign in existing user
+        await signInWithEmailAndPassword(auth, email, password);
       }
-    } catch (authError) {
-      setError(getErrorMessage(authError))
+    } catch (err) {
+      setError(err.message.replace('Firebase: ', ''));
     } finally {
-      setBusy(false)
+      setLoading(false);
     }
-  }
-
-  async function handleGoogleSignIn() {
-    setError('')
-    setBusy(true)
-
-    try {
-      await signInWithGoogle()
-    } catch (authError) {
-      setError(getErrorMessage(authError))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleSignOut() {
-    setError('')
-    setBusy(true)
-
-    try {
-      await signOutUser()
-    } catch (authError) {
-      setError(getErrorMessage(authError))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const configured = isFirebaseConfigured
-  const isSignup = mode === 'signup'
+  };
 
   return (
-    <main className="auth-layout">
-      <section className="editorial" aria-label="Faster Shop">
-        <div className="editorial__image" />
-        <div className="editorial__shade" />
-        <header className="editorial__header">
-          <Brand inverse />
-          <span className="editorial__location">LAGOS, NIGERIA <span>●</span></span>
-        </header>
-        <div className="editorial__content">
-          <span className="eyebrow"><Sparkles size={13} /> GOOD FINDS, CLOSER</span>
-          <h1>Your next<br />favourite is<br /><em>around here.</em></h1>
-          <p>Independent labels. Original style.<br />Straight from the people who made it.</p>
+    <div style={{
+      maxWidth: '420px',
+      margin: '40px auto',
+      padding: '24px',
+      borderRadius: '12px',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+      backgroundColor: '#fff',
+      fontFamily: 'sans-serif'
+    }}>
+      <h2 style={{ textAlign: 'center', marginBottom: '8px' }}>Faster App</h2>
+      <p style={{ textAlign: 'center', color: '#666', marginBottom: '24px' }}>
+        {isSignUp ? 'Create your account' : 'Welcome back! Sign in to continue'}
+      </p>
+
+      {error && (
+        <div style={{
+          backgroundColor: '#ffebee',
+          color: '#c62828',
+          padding: '10px',
+          borderRadius: '6px',
+          fontSize: '14px',
+          marginBottom: '16px'
+        }}>
+          {error}
         </div>
-        <footer className="editorial__footer">
-          <span><span className="editorial__dot" /> MADE FOR HERE</span>
-          <span>01 / 03</span>
-        </footer>
-      </section>
+      )}
 
-      <section className="auth-panel">
-        <header className="mobile-header"><Brand /></header>
-
-        <div className="auth-content">
-          {loading ? (
-            <div className="loading-state" role="status">Checking your account...</div>
-          ) : user ? (
-            <div className="signed-in">
-              <div className="signed-in__icon"><ShoppingBag size={24} /></div>
-              <span className="eyebrow eyebrow--dark">ACCOUNT READY</span>
-              <h2>Good to have<br />you here.</h2>
-              <p className="signed-in__email">{profile?.displayName || user.displayName || user.email}</p>
-              <div className="role-row"><ShieldCheck size={16} /> {profile?.role ?? 'buyer'} account</div>
-              {profile?.role === 'vendor' && profile.vendorStatus !== 'approved' && (
-                <p className="setup-notice" role="status">Your vendor application is pending approval. You can browse and shop while we review your store.</p>
-              )}
-              {onContinue && <button className="button button--primary" type="button" onClick={onContinue}>Continue to Faster Shop <ArrowRight size={16} /></button>}
-              <button className="button button--secondary signout-button" onClick={handleSignOut} disabled={busy}>
-                <LogOut size={16} /> Sign out
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        {isSignUp && (
+          <div>
+            <label style={{ fontWeight: '600', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
+              Account Type
+            </label>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setRole('buyer')}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '6px',
+                  border: role === 'buyer' ? '2px solid #000' : '1px solid #ccc',
+                  backgroundColor: role === 'buyer' ? '#f0f0f0' : '#fff',
+                  fontWeight: role === 'buyer' ? 'bold' : 'normal',
+                  cursor: 'pointer'
+                }}
+              >
+                🛍️ Buyer
               </button>
-              {error && <p className="form-error" role="alert">{error}</p>}
+              <button
+                type="button"
+                onClick={() => setRole('vendor')}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '6px',
+                  border: role === 'vendor' ? '2px solid #000' : '1px solid #ccc',
+                  backgroundColor: role === 'vendor' ? '#f0f0f0' : '#fff',
+                  fontWeight: role === 'vendor' ? 'bold' : 'normal',
+                  cursor: 'pointer'
+                }}
+              >
+                🏪 Vendor / Seller
+              </button>
             </div>
-          ) : (
-            <>
-              <div className="form-heading">
-                <span className="eyebrow eyebrow--dark">{isSignup ? (role === 'vendor' ? 'START YOUR STORE' : 'A BETTER WAY TO SHOP') : 'WELCOME BACK'}</span>
-                <h2>{isSignup ? (role === 'vendor' ? <>Make room<br />for your <em>brand.</em></> : <>Find your<br />kind of <em>different.</em></>) : <>Your finds<br />missed <em>you.</em></>}</h2>
-                <p>{isSignup ? (role === 'vendor' ? 'Create a vendor account. Store management unlocks after approval.' : 'Create an account and meet the makers behind your next favourite.') : 'Pick up right where you left off.'}</p>
-              </div>
+          </div>
+        )}
 
-              {!configured && (
-                <div className="setup-notice" role="status">
-                  <strong>Firebase setup needed</strong>
-                  <span>Add your Firebase web app settings to <code>.env.local</code> to turn on authentication.</span>
-                </div>
-              )}
+        {isSignUp && role === 'vendor' && (
+          <>
+            <div>
+              <label style={{ fontWeight: '600', fontSize: '14px', display: 'block', marginBottom: '4px' }}>
+                Store Name
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Rubian Girl, Kinging, House of Cupid"
+                value={storeName}
+                onChange={(e) => setStoreName(e.target.value)}
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontWeight: '600', fontSize: '14px', display: 'block', marginBottom: '4px' }}>
+                Store Category
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
+              >
+                <option value="Fashion & Apparel">Fashion & Apparel</option>
+                <option value="Footwear & Shoes">Footwear & Shoes</option>
+                <option value="Jewelry & Accessories">Jewelry & Accessories</option>
+                <option value="Bags & Leather Goods">Bags & Leather Goods</option>
+                <option value="Hair & Beauty Products">Hair & Beauty Products</option>
+                <option value="Food & Delivery">Food & Delivery</option>
+              </select>
+            </div>
+          </>
+        )}
 
-              {error && <p className="form-error" role="alert">{error}</p>}
-
-              <button className="button button--google" type="button" onClick={handleGoogleSignIn} disabled={!configured || busy}>
-                <span className="google-mark" aria-hidden="true">G</span>
-                Continue with Google
-              </button>
-
-              <div className="divider"><span /> <span>or with email</span> <span /></div>
-
-              <form className="auth-form" onSubmit={handleSubmit}>
-                {isSignup && (
-                  <>
-                    <fieldset className="account-type-picker" disabled={!configured || busy}>
-                      <legend>Account type</legend>
-                      <button type="button" className={role === 'buyer' ? 'account-type-picker__option account-type-picker__option--active' : 'account-type-picker__option'} aria-pressed={role === 'buyer'} onClick={() => setRole('buyer')}><ShoppingBag size={15} /> Buyer</button>
-                      <button type="button" className={role === 'vendor' ? 'account-type-picker__option account-type-picker__option--active' : 'account-type-picker__option'} aria-pressed={role === 'vendor'} onClick={() => setRole('vendor')}><Sparkles size={15} /> Vendor</button>
-                    </fieldset>
-                    <label className="field">
-                      <span>{role === 'vendor' ? 'Your name' : 'Your name'}</span>
-                      <input autoComplete="name" name="name" placeholder="e.g. Amara Okafor" required disabled={!configured || busy} />
-                    </label>
-                    {role === 'vendor' && (
-                      <label className="field">
-                        <span>Store name</span>
-                        <input autoComplete="organization" name="storeName" placeholder="The name customers will see" required disabled={!configured || busy} />
-                      </label>
-                    )}
-                  </>
-                )}
-                <label className="field">
-                  <span>Email address</span>
-                  <input autoComplete="email" name="email" type="email" placeholder="you@example.com" required disabled={!configured || busy} />
-                </label>
-                <label className="field">
-                  <span>Password</span>
-                  <span className="password-input">
-                    <input autoComplete={isSignup ? 'new-password' : 'current-password'} minLength="6" name="password" placeholder="At least 6 characters" required type={showPassword ? 'text' : 'password'} disabled={!configured || busy} />
-                    <button aria-label={showPassword ? 'Hide password' : 'Show password'} className="password-toggle" onClick={() => setShowPassword(!showPassword)} type="button" disabled={!configured || busy}>
-                      {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-                    </button>
-                  </span>
-                </label>
-                <button className="button button--primary" type="submit" disabled={!configured || busy}>
-                  {busy ? 'One moment...' : isSignup ? 'Create your account' : 'Sign in'}
-                  {!busy && <ArrowRight size={17} />}
-                </button>
-              </form>
-
-              <p className="switch-mode">
-                {isSignup ? 'Already have an account?' : 'New around here?'}{' '}
-                <button type="button" onClick={() => { setMode(isSignup ? 'signin' : 'signup'); setError('') }}>
-                  {isSignup ? 'Sign in' : 'Create an account'}
-                </button>
-              </p>
-            </>
-          )}
+        <div>
+          <label style={{ fontWeight: '600', fontSize: '14px', display: 'block', marginBottom: '4px' }}>
+            Email
+          </label>
+          <input
+            type="email"
+            required
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
+          />
         </div>
 
-        <footer className="auth-footer">
-          <span>© {new Date().getFullYear()} Faster Shop Nigeria</span>
-          <span><ShieldCheck size={14} /> YOUR DETAILS STAY YOURS</span>
-        </footer>
-      </section>
-    </main>
-  )
+        <div>
+          <label style={{ fontWeight: '600', fontSize: '14px', display: 'block', marginBottom: '4px' }}>
+            Password
+          </label>
+          <input
+            type="password"
+            required
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            padding: '12px',
+            backgroundColor: '#000',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            marginTop: '8px'
+          }}
+        >
+          {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
+        </button>
+      </form>
+
+      <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '14px' }}>
+        {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+        <button
+          type="button"
+          onClick={() => setIsSignUp(!isSignUp)}
+          style={{ background: 'none', border: 'none', color: '#0066cc', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          {isSignUp ? 'Sign In' : 'Sign Up'}
+        </button>
+      </div>
+    </div>
+  );
 }
