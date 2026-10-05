@@ -13,12 +13,18 @@ export default function HomePage() {
   const [cart, setCart] = useState([]);
   const [orderMessage, setOrderMessage] = useState('');
 
-  // Subscribe to real-time products from Firestore
+  // Fetch live products from Firestore
   useEffect(() => {
-    const unsubscribe = subscribeProducts((liveProducts) => {
-      setProducts(liveProducts || []);
-    });
-    return () => unsubscribe();
+    try {
+      const unsubscribe = subscribeProducts((liveProducts) => {
+        setProducts(liveProducts || []);
+      });
+      return () => {
+        if (typeof unsubscribe === 'function') unsubscribe();
+      };
+    } catch (err) {
+      console.error("Error subscribing to products:", err);
+    }
   }, []);
 
   const handleLogout = async () => {
@@ -107,19 +113,22 @@ export default function HomePage() {
               <div>
                 <h2 style={{ marginBottom: '16px' }}>🛍️ Marketplace Products</h2>
                 {products.length === 0 ? (
-                  <p style={{ color: '#666' }}>No products published yet. Switch to the Vendor tab to add the first item!</p>
+                  <div style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '10px', textAlign: 'center', border: '1px solid #eee' }}>
+                    <p style={{ color: '#666', fontSize: '16px', margin: 0 }}>No products published yet.</p>
+                    <p style={{ color: '#888', fontSize: '14px', marginTop: '8px' }}>Switch to the <strong>Vendor</strong> tab to add your first item!</p>
+                  </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
                     {products.map((item) => (
-                      <div key={item.id} style={{ border: '1px solid #e0e0e0', borderRadius: '10px', padding: '16px', backgroundColor: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div key={item.id || Math.random()} style={{ border: '1px solid #e0e0e0', borderRadius: '10px', padding: '16px', backgroundColor: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                         <div>
                           <img 
                             src={item.imageUrl || 'https://via.placeholder.com/200'} 
-                            alt={item.name} 
+                            alt={item.name || 'Product'} 
                             style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '8px', marginBottom: '12px' }} 
                           />
                           <h4 style={{ margin: '0 0 6px 0' }}>{item.name}</h4>
-                          <p style={{ margin: '0 0 12px 0', fontWeight: 'bold', color: '#0066cc' }}>₦{Number(item.price).toLocaleString()}</p>
+                          <p style={{ margin: '0 0 12px 0', fontWeight: 'bold', color: '#0066cc' }}>₦{Number(item.price || 0).toLocaleString()}</p>
                         </div>
                         <button 
                           onClick={() => addToCart(item)}
@@ -143,7 +152,7 @@ export default function HomePage() {
                       <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
                         <div>
                           <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{item.name}</div>
-                          <div style={{ fontSize: '12px', color: '#666' }}>₦{Number(item.price).toLocaleString()}</div>
+                          <div style={{ fontSize: '12px', color: '#666' }}>₦{Number(item.price || 0).toLocaleString()}</div>
                         </div>
                         <button 
                           onClick={() => removeFromCart(index)} 
