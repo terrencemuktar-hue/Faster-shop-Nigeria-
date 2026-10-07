@@ -7,9 +7,9 @@ import Toast from './components/Toast';
 import ProductDetail from './components/ProductDetail';
 import ShopPage from './pages/ShopPage';
 import ProfilePage from './pages/ProfilePage';
-import OrdersPage from './pages/OrdersPage';
+import VendorPage from './pages/VendorPage';
 import { getStoredVendors, getStoredProducts, getStoredWishlist, saveWishlist } from './lib/store';
-import { Heart, ShoppingBag } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -19,7 +19,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isVendorRegOpen, setIsVendorRegOpen] = useState(false);
 
   const vendors = getStoredVendors();
   const products = getStoredProducts();
@@ -44,21 +44,17 @@ export default function App() {
     triggerToast(`Added ${product.name} to bag!`, 'bag');
   };
 
-  const toggleWishlist = (product) => {
-    const exists = wishlist.some(item => item.id === product.id);
-    let updated;
-    if (exists) {
-      updated = wishlist.filter(item => item.id !== product.id);
-      triggerToast('Removed from wishlist', 'wishlist');
-    } else {
-      updated = [...wishlist, product];
-      triggerToast('You will be notified when new collections drop', 'wishlist');
-    }
-    setWishlist(updated);
-    saveWishlist(updated);
-  };
-
   const totalCartCount = cart.reduce((a, b) => a + (b.quantity || 1), 0);
+
+  if (isVendorRegOpen) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col items-center">
+        <div className="w-full max-w-[430px] min-h-screen bg-black text-white relative shadow-2xl border-x border-zinc-900">
+          <VendorPage onBack={() => setIsVendorRegOpen(false)} showToast={triggerToast} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center selection:bg-[#00D26A] selection:text-black">
@@ -84,27 +80,46 @@ export default function App() {
                   <button onClick={() => setActiveTab('shop')} className="text-xs text-emerald-600 font-semibold cursor-pointer">See All</button>
                 </div>
 
-                {/* Hero / Rubian Girl Featured Card */}
-                {products.length > 0 && (
-                  <div 
-                    onClick={() => setSelectedProduct(products[0])}
-                    className="rounded-[24px] overflow-hidden relative shadow-lg cursor-pointer bg-zinc-900 aspect-[4/5] group"
-                  >
-                    <img 
-                      src={products[0].image || products[0].img} 
-                      alt="Rubian Girl" 
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-5 space-y-2 text-white">
-                      <p className="text-zinc-300 text-xs font-medium">MODELS 20S, 20S</p>
-                      <h3 className="text-2xl font-black tracking-tight">{products[0].name || 'RUBIAN GIRL - New Drop'}</h3>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); setSelectedProduct(products[0]); }}
-                        className="bg-white text-black font-bold py-3 px-6 rounded-full text-xs w-max mt-1 active:scale-[0.98] transition-all cursor-pointer shadow-lg"
-                      >
-                        SHOP NOW
-                      </button>
+                {products.length === 0 ? (
+                  <div className="w-full px-4 py-12 flex flex-col items-center justify-center text-center space-y-4">
+                    <div className="w-16 h-16 bg-white border border-zinc-200 rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm">
+                      <ShieldCheck className="w-8 h-8" />
                     </div>
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-bold text-black">Verified drops coming soon</h3>
+                      <p className="text-xs text-zinc-500 max-w-[260px]">We're onboarding real Nigerian vendors</p>
+                    </div>
+                    <button 
+                      onClick={() => setIsVendorRegOpen(true)}
+                      className="bg-black text-white font-bold text-xs px-6 py-3 rounded-full active:scale-[0.98] transition-all cursor-pointer shadow-md"
+                    >
+                      Become a Verified Vendor
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4">
+                    {products.map((product) => (
+                      <div 
+                        key={product.id}
+                        onClick={() => setSelectedProduct(product)}
+                        className="bg-white rounded-[24px] overflow-hidden border border-zinc-200 shadow-sm cursor-pointer group"
+                      >
+                        <div className="aspect-[4/3] w-full overflow-hidden bg-zinc-100 relative">
+                          <img 
+                            src={product.image || product.img} 
+                            alt={product.name} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                          />
+                        </div>
+                        <div className="p-4 space-y-1.5">
+                          <div className="flex justify-between items-start">
+                            <h3 className="text-sm font-bold text-black tracking-tight">{product.name}</h3>
+                            <span className="text-emerald-600 font-extrabold text-xs">₦{product.price?.toLocaleString()}</span>
+                          </div>
+                          <p className="text-[11px] text-zinc-500 font-medium">{product.vendorName || 'Verified Nigerian Vendor'}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -131,7 +146,13 @@ export default function App() {
               )}
             </div>
           )}
-          {activeTab === 'profile' && <ProfilePage showToast={triggerToast} onNavigateOrders={() => setActiveTab('orders')} />}
+          {activeTab === 'profile' && (
+            <ProfilePage 
+              showToast={triggerToast} 
+              onNavigateOrders={() => setActiveTab('shop')} 
+              onOpenVendorReg={() => setIsVendorRegOpen(true)} 
+            />
+          )}
         </main>
 
         {selectedProduct && (
