@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import '../../styles.css'; // Add this line if missing
+import '../../styles.css';
 import { ShoppingBag, Search, PlusCircle } from 'lucide-react';
 import { getVendors, getProducts } from '../../lib/store';
 import VendorRegisterModal from '../vendor/VendorRegisterModal';
 import ProductDetailModal from './ProductDetailModal';
 import VendorStoryReels from './VendorStoryReels';
+
 
 
 export default function HomePage() {
