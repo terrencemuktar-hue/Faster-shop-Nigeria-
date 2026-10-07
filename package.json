@@ -17,10 +17,11 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
+    "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.6.1",
     "postcss": "^8.5.29",
-    "tailwindcss": "^4.3.3",
+    "tailwindcss": "^3.4.19",
     "vite": "^7.0.0"
   },
   "overrides": {
