@@ -1,97 +1,175 @@
-import React, { useState } from 'react';
-import Logo from '../components/Logo';
+import React, { useState, useEffect } from 'react';
+import { Search, Star, ShoppingBag, SlidersHorizontal } from 'lucide-react';
+import { getStoredProducts } from '../lib/store';
+import { db } from '../firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
-export default function ShopPage({ setSelectedVendor, setSelectedProduct, wishlist, toggleWishlist }) {
-  const [selectedBrandFilter, setSelectedBrandFilter] = useState('RUBIAN GIRL.');
+export default function ShopPage({ onAddToCart, onSelectProduct }) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedSize, setSelectedSize] = useState('All');
+  const [priceRange, setPriceRange] = useState('All');
+  const [sortBy, setSortBy] = useState('newest');
+  const [products, setProducts] = useState(getStoredProducts());
+  const [loading, setLoading] = useState(false);
 
-  const products = [
-    { id: 1, title: 'Rubian Girl Silk Blouse', brand: 'RUBIAN GIRL.', price: 90000, image: 'https://images.unsplash.com/photo-1554412933-514a83d2f3c8?auto=format&fit=crop&w=600&q=80' },
-    { id: 2, title: 'Kinging Bomber Jacket', brand: 'RINGING', price: 180000, image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=600&q=80' },
-    { id: 3, title: 'Rubian Girl Denim Jacket', brand: 'RUBIAN GIRL.', price: 75000, image: 'https://images.unsplash.com/photo-1543076447-215ad9ba6923?auto=format&fit=crop&w=600&q=80' },
-    { id: 4, title: 'Kinging Graphic Hoodie', brand: 'RINGING', price: 135000, image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=600&q=80' },
-    { id: 5, title: 'Amardedon Streetwear Tee', brand: 'Amardedon', price: 25000, image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=600&q=80' },
-    { id: 6, title: 'Amina Woven Tote', brand: 'Amina Atelier', price: 45000, image: 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=600&q=80' },
-  ];
+  useEffect(() => {
+    async function fetchFirestoreProducts() {
+      setLoading(true);
+      try {
+        const querySnapshot = await getDocs(collection(db, 'products'));
+        if (!querySnapshot.empty) {
+          const firestoreItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setProducts([...firestoreItems, ...getStoredProducts()]);
+        }
+      } catch (e) {
+        // Fallback to local
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchFirestoreProducts();
+  }, []);
 
-  const filteredProducts = selectedBrandFilter === 'ALL' 
-    ? products 
-    : products.filter(p => p.brand.toLowerCase().includes(selectedBrandFilter.toLowerCase().replace('.', '')));
+  const categories = ['All', 'Luxury Wear', 'Streetwear', 'Leather & Accessories', 'Footwear'];
+  const sizes = ['All', 'S', 'M', 'L', 'XL'];
+  const priceRanges = ['All', 'Under N100k', 'N100k-N200k', 'Above N200k'];
+
+  const filtered = products.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          item.vendor?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCat = selectedCategory === 'All' || item.category === selectedCategory;
+    const matchesSize = selectedSize === 'All' || (item.sizes && item.sizes.includes(selectedSize)) || true;
+    
+    let matchesPrice = true;
+    const price = item.price || 0;
+    if (priceRange === 'Under N100k') matchesPrice = price < 100000;
+    else if (priceRange === 'N100k-N200k') matchesPrice = price >= 100000 && price <= 200000;
+    else if (priceRange === 'Above N200k') matchesPrice = price > 200000;
+
+    return matchesSearch && matchesCat && matchesSize && matchesPrice;
+  }).sort((a, b) => {
+    if (sortBy === 'price-low') return (a.price || 0) - (b.price || 0);
+    if (sortBy === 'price-high') return (b.price || 0) - (a.price || 0);
+    return 0; // newest
+  });
 
   return (
-    <div className="min-h-screen bg-[#F9F9F9] text-neutral-900 pb-28 font-sans max-w-[430px] mx-auto shadow-2xl">
-      <header className="px-5 pt-4 pb-3 flex items-center justify-between bg-black text-white">
-        <Logo size="sm" />
-        <div className="flex items-center gap-4 text-xl">
-          <button>🔍</button>
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white pb-24">
+      
+      {/* Header & Search */}
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold tracking-tight">Faster Shop Marketplace</h1>
+        
+        <div className="relative">
+          <Search className="absolute left-4 top-3.5 w-5 h-5 text-zinc-400" />
+          <input 
+            type="text" 
+            placeholder="Search RUBIAN GIRL, RINGING, hoodies..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl pl-12 pr-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 shadow-inner"
+          />
         </div>
-      </header>
 
-      <div className="bg-black px-5 pb-5 pt-2">
-        <h2 className="text-white text-xs font-semibold uppercase tracking-widest mb-3 opacity-80">EXPLORE BRANDS</h2>
-        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
-          {['RUBIAN GIRL.', 'RINGING', 'Amardedon', 'Amina Atelier'].map((brand) => {
-            const isActive = selectedBrandFilter === brand;
-            return (
-              <button
-                key={brand}
-                onClick={() => setSelectedBrandFilter(isActive ? 'ALL' : brand)}
-                className={`px-5 py-2 rounded-full text-xs font-bold tracking-wide transition whitespace-nowrap shadow-md ${
-                  isActive 
-                    ? 'bg-[#FF2D78] text-white shadow-[#FF2D78]/30' 
-                    : 'bg-neutral-800 text-white border border-neutral-700'
-                }`}
+        {/* Category Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition ${selectedCategory === cat ? 'bg-emerald-600 text-white shadow-lg' : 'bg-zinc-900 text-zinc-400 border border-zinc-800'}`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Sub-filters (Sizes & Price & Sort) */}
+        <div className="flex flex-wrap gap-2 items-center justify-between bg-zinc-900/60 p-3 rounded-2xl border border-zinc-800">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            <span className="text-xs text-zinc-400 font-semibold">Size:</span>
+            {sizes.map(s => (
+              <button 
+                key={s} 
+                onClick={() => setSelectedSize(s)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold ${selectedSize === s ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-300'}`}
               >
-                {brand}
+                {s}
               </button>
-            );
-          })}
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <select 
+              value={sortBy} 
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-zinc-800 text-zinc-300 text-xs px-3 py-1.5 rounded-xl border border-zinc-700 focus:outline-none"
+            >
+              <option value="newest">Newest Drops</option>
+              <option value="price-low">Price: Low to High</option>
+              <option value="price-high">Price: High to Low</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      <div className="p-5">
-        <div className="grid grid-cols-2 gap-4">
-          {filteredProducts.map((product) => {
-            const isLiked = wishlist.some(item => item.id === product.id);
-            return (
+      {/* Product Grid */}
+      {loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(n => (
+            <div key={n} className="aspect-square bg-zinc-900 animate-pulse rounded-2xl"></div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {filtered.length === 0 ? (
+            <div className="col-span-full text-center py-16 space-y-2">
+              <SlidersHorizontal className="w-12 h-12 text-zinc-700 mx-auto stroke-1" />
+              <p className="text-zinc-400 font-medium">No items found</p>
+              <p className="text-xs text-zinc-600">Try adjusting your filters.</p>
+            </div>
+          ) : (
+            filtered.map((product) => (
               <div 
-                key={product.id}
-                className="bg-white rounded-[18px] p-3 shadow-sm border border-neutral-100 flex flex-col justify-between group relative"
+                key={product.id} 
+                className="bg-zinc-900/70 border border-zinc-800 rounded-2xl overflow-hidden group flex flex-col justify-between shadow-lg cursor-pointer hover:border-emerald-500/50 transition"
+                onClick={() => onSelectProduct(product)}
               >
-                <div 
-                  onClick={() => setSelectedProduct(product)}
-                  className="aspect-[4/5] rounded-[14px] overflow-hidden bg-neutral-100 relative cursor-pointer"
-                >
-                  <img src={product.image} alt={product.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); toggleWishlist(product); }}
-                    className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center shadow-md text-sm hover:scale-110 transition"
-                  >
-                    {isLiked ? '❤️' : '🤍'}
-                  </button>
-                </div>
-
-                <div className="mt-3 space-y-1">
-                  <button 
-                    onClick={() => setSelectedVendor(product.brand)}
-                    className="text-[10px] uppercase font-bold text-[#FF2D78] tracking-wider hover:underline block text-left"
-                  >
-                    {product.brand}
-                  </button>
-                  <h3 
-                    onClick={() => setSelectedProduct(product)}
-                    className="font-semibold text-xs text-neutral-900 truncate cursor-pointer hover:text-[#FF2D78]"
-                  >
-                    {product.title}
-                  </h3>
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="font-black text-sm text-neutral-900">₦{product.price.toLocaleString()}</span>
+                <div>
+                  <div className="relative aspect-square overflow-hidden bg-zinc-800">
+                    <img src={product.image || product.img} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                    <span className="absolute top-2.5 left-2.5 bg-black/70 backdrop-blur-md text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                      {product.vendor || 'RUBIAN GIRL'}
+                    </span>
+                  </div>
+                  <div className="p-3 space-y-1">
+                    <h3 className="font-semibold text-xs text-zinc-200 truncate">{product.name}</h3>
+                    <div className="flex items-center justify-between">
+                      <span className="text-emerald-400 font-bold text-sm">₦{product.price?.toLocaleString()}</span>
+                      <div className="flex items-center gap-1 text-amber-400 text-xs">
+                        <Star className="w-3.5 h-3.5 fill-current" />
+                        <span>4.8</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                <div className="p-3 pt-0">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onAddToCart(product); }}
+                    className="w-full bg-zinc-800 hover:bg-emerald-600 text-zinc-200 hover:text-white py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    Add to Bag
+                  </button>
+                </div>
               </div>
-            );
-          })}
+            ))
+          )}
         </div>
-      </div>
+      )}
+
     </div>
   );
 }

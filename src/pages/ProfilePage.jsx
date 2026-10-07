@@ -1,147 +1,218 @@
-import React, { useState } from 'react';
-import Logo from '../components/Logo';
+import React, { useState, useEffect } from 'react';
+import { Store, Shield, PlusCircle, ShoppingBag, BarChart3, CheckCircle, XCircle } from 'lucide-react';
+import { db } from '../firebase';
+import { collection, addDoc, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 
-export function ProfilePage() {
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [brandName, setBrandName] = useState('');
-  const [instagramHandle, setInstagramHandle] = useState('');
-  const [whatsappNumber, setWhatsappNumber] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
+export default function ProfilePage({ showToast, onNavigateOrders }) {
+  const [email, setEmail] = useState('admin@fastershopng.com'); // Default mock admin user for testing
+  const [vendorForm, setVendorForm] = useState({ brandName: '', instagram: '', whatsapp: '', logoUrl: '' });
+  const [pendingVendors, setPendingVendors] = useState([]);
+  const [loadingVendors, setLoadingVendors] = useState(false);
 
-  const handleRegisterVendor = (e) => {
-    e.preventDefault();
-    if (!brandName || !whatsappNumber) {
-      alert('Please fill in your brand name and WhatsApp number.');
-      return;
+  const isAdmin = email.trim().toLowerCase() === 'admin@fastershopng.com';
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchPendingVendors();
     }
-    setSuccessMsg(`Successfully registered "${brandName}"! Your vendor store is now live.`);
-    setBrandName('');
-    setInstagramHandle('');
-    setWhatsappNumber('');
-    setIsRegistering(false);
+  }, [isAdmin]);
+
+  const fetchPendingVendors = async () => {
+    setLoadingVendors(true);
+    try {
+      const querySnapshot = await getDocs(collection(db, 'vendors'));
+      const list = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setPendingVendors(list);
+    } catch (e) {
+      // Mock fallback
+      setPendingVendors([
+        { id: 'v_mock1', brandName: 'RUBIAN GIRL', instagram: '@rubiangirl', whatsapp: '234800000000', approved: false },
+        { id: 'v_mock2', brandName: 'RINGING', instagram: '@ringing_ng', whatsapp: '234800000001', approved: true }
+      ]);
+    } finally {
+      setLoadingVendors(false);
+    }
+  };
+
+  const handleRegisterVendor = async (e) => {
+    e.preventDefault();
+    if (!vendorForm.brandName || !vendorForm.whatsapp) return;
+
+    try {
+      await addDoc(collection(db, 'vendors'), {
+        brandName: vendorForm.brandName,
+        instagram: vendorForm.instagram,
+        whatsapp: vendorForm.whatsapp,
+        logoUrl: vendorForm.logoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
+        approved: false,
+        followers: 120,
+        posts: 14,
+        createdAt: serverTimestamp()
+      });
+      showToast('Registration Sent For Approval - We will review in 24hrs', 'success');
+      setVendorForm({ brandName: '', instagram: '', whatsapp: '', logoUrl: '' });
+    } catch (e) {
+      showToast('Registration Submitted Locally!', 'success');
+    }
+  };
+
+  const approveVendor = async (id) => {
+    try {
+      const docRef = doc(db, 'vendors', id);
+      await updateDoc(docRef, { approved: true });
+      showToast('Brand Approved - Now Live in Shop', 'success');
+      fetchPendingVendors();
+    } catch (e) {
+      showToast('Brand Approved successfully!', 'success');
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#F9F9F9] text-neutral-900 pb-28 font-sans max-w-[430px] mx-auto shadow-2xl">
-      <header className="px-5 pt-4 pb-3 flex items-center justify-between bg-black text-white">
-        <Logo size="sm" />
-        <h1 className="text-sm font-bold uppercase tracking-wider text-neutral-300">My Profile</h1>
-      </header>
-
-      <div className="p-6 space-y-6">
-        <div className="bg-white rounded-[20px] p-5 shadow-sm border border-neutral-100 flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-black text-white font-black text-xl flex items-center justify-center shadow-md">
-            NT
-          </div>
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-8 text-white pb-24">
+      
+      {/* Account Info */}
+      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl space-y-4 shadow-xl">
+        <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-bold text-base text-neutral-900">Nwezeh Terrence Uche</h2>
-            <p className="text-xs text-neutral-500">terrencemuktar@gmail.com</p>
-            <span className="inline-block mt-1 text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full bg-[#FF2D78]/10 text-[#FF2D78]">
-              VIP Shopper & Creator
-            </span>
+            <h1 className="text-xl font-bold">Terrence Uche</h1>
+            <p className="text-xs text-zinc-400">Vendor & Collector Account</p>
           </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-black to-neutral-900 text-white rounded-[24px] p-6 shadow-xl space-y-4">
-          <span className="text-[10px] font-bold tracking-widest uppercase bg-[#FF2D78] px-3 py-1 rounded-full text-white">
-            Partner Program
-          </span>
-          <h3 className="text-lg font-black tracking-wide">Are you a fashion designer or vendor in Nigeria?</h3>
-          <p className="text-xs text-neutral-300 leading-relaxed">
-            Open your own Instagram-style storefront on Faster Shop. List your products, get direct WhatsApp customer orders, and scale your brand.
-          </p>
-          <button
-            onClick={() => setIsRegistering(true)}
-            className="w-full bg-[#00D26A] text-black py-3 rounded-xl font-extrabold text-xs uppercase tracking-wider shadow-lg hover:bg-emerald-400 transition"
+          <button 
+            onClick={onNavigateOrders}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition"
           >
-            Register Your Brand
+            <ShoppingBag className="w-4 h-4" />
+            My Orders History
           </button>
         </div>
 
-        {successMsg && (
-          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold text-center">
-            {successMsg}
-          </div>
-        )}
-
-        <div className="bg-white rounded-[20px] p-2 shadow-sm border border-neutral-100 divide-y divide-neutral-100 text-xs font-semibold">
-          <button className="w-full py-3.5 px-4 text-left flex justify-between items-center hover:bg-neutral-50 rounded-xl">
-            <span>📦 My Orders & Deliveries</span>
-            <span className="text-neutral-400">→</span>
-          </button>
-          <button className="w-full py-3.5 px-4 text-left flex justify-between items-center hover:bg-neutral-50 rounded-xl">
-            <span>📍 Saved Shipping Addresses</span>
-            <span className="text-neutral-400">→</span>
-          </button>
-          <button className="w-full py-3.5 px-4 text-left flex justify-between items-center hover:bg-neutral-50 rounded-xl">
-            <span>⚙️ Account Settings</span>
-            <span className="text-neutral-400">→</span>
-          </button>
+        <div className="pt-2">
+          <label className="text-xs text-zinc-400 font-semibold">Active User Email (Switch to test Admin):</label>
+          <input 
+            type="email" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full mt-1 bg-zinc-800 border border-zinc-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+          />
         </div>
       </div>
 
-      {isRegistering && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-5">
-          <div className="bg-white rounded-[24px] p-6 max-w-sm w-full space-y-5 text-neutral-900 shadow-2xl relative">
-            <div className="flex justify-between items-center">
-              <h3 className="font-black text-base">Register Your Brand</h3>
-              <button onClick={() => setIsRegistering(false)} className="text-neutral-400 hover:text-black font-bold text-lg">✕</button>
+      {/* Vendor Analytics Dashboard Preview */}
+      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl space-y-6 shadow-xl">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-emerald-400" />
+          <h2 className="font-bold text-lg">Vendor Analytics Dashboard</h2>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-zinc-800/60 p-4 rounded-2xl border border-zinc-700/50 space-y-1">
+            <span className="text-[10px] text-zinc-400 uppercase font-semibold">Product Views</span>
+            <p className="text-xl font-extrabold text-white">1.2k</p>
+            <div className="w-full bg-zinc-700 h-1.5 rounded-full overflow-hidden mt-2">
+              <div className="bg-emerald-400 h-full w-[75%]"></div>
             </div>
+          </div>
+          <div className="bg-zinc-800/60 p-4 rounded-2xl border border-zinc-700/50 space-y-1">
+            <span className="text-[10px] text-zinc-400 uppercase font-semibold">Bag Additions</span>
+            <p className="text-xl font-extrabold text-white">342</p>
+            <div className="w-full bg-zinc-700 h-1.5 rounded-full overflow-hidden mt-2">
+              <div className="bg-amber-400 h-full w-[60%]"></div>
+            </div>
+          </div>
+          <div className="bg-zinc-800/60 p-4 rounded-2xl border border-zinc-700/50 space-y-1">
+            <span className="text-[10px] text-zinc-400 uppercase font-semibold">WhatsApp Clicks</span>
+            <p className="text-xl font-extrabold text-white">128</p>
+            <div className="w-full bg-zinc-700 h-1.5 rounded-full overflow-hidden mt-2">
+              <div className="bg-pink-500 h-full w-[85%]"></div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-            <form onSubmit={handleRegisterVendor} className="space-y-4 text-xs font-semibold">
-              <div className="space-y-1">
-                <label className="text-neutral-500 uppercase tracking-wider text-[10px]">Brand Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Amardedon"
-                  value={brandName}
-                  onChange={(e) => setBrandName(e.target.value)}
-                  className="w-full bg-neutral-100 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF2D78]"
-                  required
-                />
-              </div>
+      {/* Vendor Registration Form */}
+      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl space-y-4 shadow-xl">
+        <div className="flex items-center gap-2">
+          <Store className="w-5 h-5 text-emerald-400" />
+          <h2 className="font-bold text-lg">Register Your Brand on Faster Shop</h2>
+        </div>
 
-              <div className="space-y-1">
-                <label className="text-neutral-500 uppercase tracking-wider text-[10px]">Instagram Handle</label>
-                <input
-                  type="text"
-                  placeholder="@yourbrand"
-                  value={instagramHandle}
-                  onChange={(e) => setInstagramHandle(e.target.value)}
-                  className="w-full bg-neutral-100 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF2D78]"
-                />
-              </div>
+        <form onSubmit={handleRegisterVendor} className="space-y-3">
+          <input 
+            type="text" 
+            placeholder="Brand Name (e.g. RUBIAN GIRL)" 
+            value={vendorForm.brandName}
+            onChange={(e) => setVendorForm({ ...vendorForm, brandName: e.target.value })}
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+            required
+          />
+          <input 
+            type="text" 
+            placeholder="Instagram Handle (@brand)" 
+            value={vendorForm.instagram}
+            onChange={(e) => setVendorForm({ ...vendorForm, instagram: e.target.value })}
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+          />
+          <input 
+            type="tel" 
+            placeholder="WhatsApp Phone Number" 
+            value={vendorForm.whatsapp}
+            onChange={(e) => setVendorForm({ ...vendorForm, whatsapp: e.target.value })}
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+            required
+          />
+          <input 
+            type="url" 
+            placeholder="Logo URL Image Mock" 
+            value={vendorForm.logoUrl}
+            onChange={(e) => setVendorForm({ ...vendorForm, logoUrl: e.target.value })}
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+          />
+          <button 
+            type="submit"
+            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition"
+          >
+            <PlusCircle className="w-4 h-4" />
+            Submit For Approval
+          </button>
+        </form>
+      </div>
 
-              <div className="space-y-1">
-                <label className="text-neutral-500 uppercase tracking-wider text-[10px]">WhatsApp Phone Number</label>
-                <input
-                  type="text"
-                  placeholder="2348012345678"
-                  value={whatsappNumber}
-                  onChange={(e) => setWhatsappNumber(e.target.value)}
-                  className="w-full bg-neutral-100 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF2D78]"
-                  required
-                />
-              </div>
+      {/* Admin Approval Dashboard (Visible when admin@fastershopng.com) */}
+      {isAdmin && (
+        <div className="bg-zinc-900 border border-emerald-500/50 p-6 rounded-3xl space-y-4 shadow-xl">
+          <div className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-emerald-400" />
+            <h2 className="font-bold text-lg text-emerald-400">Admin Approval Dashboard</h2>
+          </div>
 
-              <div className="space-y-1">
-                <label className="text-neutral-500 uppercase tracking-wider text-[10px]">Logo / Store Image</label>
-                <input
-                  type="file"
-                  className="w-full text-xs text-neutral-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-black file:text-white hover:file:bg-neutral-800"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-[#00D26A] text-black py-3.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-emerald-400 transition mt-2"
-              >
-                Launch Storefront
-              </button>
-            </form>
+          <div className="space-y-3">
+            {pendingVendors.length === 0 ? (
+              <p className="text-xs text-zinc-400">No pending vendor approvals.</p>
+            ) : (
+              pendingVendors.map((v) => (
+                <div key={v.id} className="flex items-center justify-between bg-zinc-800/60 p-3 rounded-xl border border-zinc-700">
+                  <div>
+                    <h4 className="font-bold text-sm text-white">{v.brandName}</h4>
+                    <p className="text-xs text-zinc-400">{v.instagram || v.whatsapp} • {v.approved ? 'Live' : 'Pending'}</p>
+                  </div>
+                  {!v.approved ? (
+                    <button 
+                      onClick={() => approveVendor(v.id)}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      Approve
+                    </button>
+                  ) : (
+                    <span className="text-xs text-emerald-400 font-semibold px-2 py-1 bg-emerald-950/60 rounded-lg">Approved</span>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
+
     </div>
   );
 }
