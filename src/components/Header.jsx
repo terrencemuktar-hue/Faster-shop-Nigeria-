@@ -7,13 +7,17 @@ export default function Header({ onOpenCart, cartCount, onGoHome, onOpenSettings
   return (
     <header className="sticky top-0 z-50 bg-[#000000] border-b border-zinc-900 px-4 py-3 space-y-3 w-full">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 cursor-pointer select-none" onClick={onGoHome}>
-          <div className="w-8 h-8 bg-white rounded-md flex items-center justify-center">
-            <span className="font-black text-black text-[18px]">F</span>
+        <div className="flex items-center gap-2.5 cursor-pointer select-none" onClick={onGoHome}>
+          <div className="w-9 h-9 bg-white rounded-[10px] flex items-center justify-center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M5 7H19L20 20H4L5 7Z" fill="black"/>
+              <path d="M8 7C8 4 9.5 3 12 3C14.5 3 16 4 16 7" stroke="black" strokeWidth="1.5" fill="none"/>
+              <text x="7" y="16" fontSize="11" fontWeight="900" fill="white" fontFamily="sans-serif">F</text>
+            </svg>
           </div>
           <div>
-            <h1 className="font-extrabold text-sm tracking-widest text-white uppercase">FASTER</h1>
-            <p className="text-[10px] text-zinc-400 tracking-[0.2em] uppercase">SHOP NIGERIA</p>
+            <div className="font-black text-white tracking-[0.15em] text-[15px] leading-none">FASTER</div>
+            <div className="text-[10px] tracking-[0.2em] text-gray-400 leading-none mt-1">SHOP NIGERIA</div>
           </div>
         </div>
 
