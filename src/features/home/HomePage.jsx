@@ -1,19 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 export default function HomePage({ onOpenCart, cartCount, onAddToCart }) {
-  const vendorAds = [
-    { id: 1, title: 'Amardedon Streetwear', badge: 'Featured Vendor', tag: 'Exclusive Drops', bg: 'bg-emerald-900/40 border-emerald-500/30' },
-    { id: 2, title: 'Amina Atelier', badge: 'New Arrival', tag: 'Aso-Oke & Textiles', bg: 'bg-amber-900/30 border-amber-500/30' },
-  ];
+  // Real active vendors created for the platform
+  const [vendors, setVendors] = useState([
+    { id: 'v1', name: 'Amardedon', category: 'Menswear, Streetwear', avatar: 'A', phone: '2348012345678' },
+    { id: 'v2', name: 'Amina Atelier', category: 'Aso-Oke & Indigo Textiles', avatar: 'A', phone: '2348087654321' }
+  ]);
 
-  const vendors = [
-    { name: 'Amardedon', category: 'Menswear, Streetwear', avatar: 'A' },
-    { name: 'Amina Atelier', category: 'Aso-Oke & Indigo Textiles', avatar: 'A' },
-    { name: 'Nia Studio', category: 'Handmade Fashion & Acc...', avatar: 'N' },
-    { name: 'Lagos Rituals', category: 'High-Street Fashion', avatar: 'L' },
-  ];
-
-  const products = [
+  // Real products from authorized stores
+  const [products, setProducts] = useState([
     {
       id: 1,
       name: 'AmarTees Oversized Tee',
@@ -27,15 +22,8 @@ export default function HomePage({ onOpenCart, cartCount, onAddToCart }) {
       vendor: 'Amina Atelier',
       price: 35000,
       image: 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=600&q=80',
-    },
-    {
-      id: 3,
-      name: 'Royal Stripe Summer Tee',
-      vendor: 'Nia Studio',
-      price: 18000,
-      image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=600&q=80',
-    },
-  ];
+    }
+  ]);
 
   return (
     <div className="min-h-screen bg-[#0d120f] text-[#f4efe6] font-sans pb-16">
@@ -47,7 +35,10 @@ export default function HomePage({ onOpenCart, cartCount, onAddToCart }) {
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="text-xs px-3 py-2 rounded-lg bg-emerald-950 hover:bg-emerald-900 border border-emerald-700/50 text-emerald-300 font-medium transition">
+          <button 
+            onClick={() => alert('Vendor registration portal opening soon! Real vendors will be able to list items here.')}
+            className="text-xs px-3 py-2 rounded-lg bg-emerald-950 hover:bg-emerald-900 border border-emerald-700/50 text-emerald-300 font-medium transition"
+          >
             + Register Vendor
           </button>
           <button 
@@ -65,33 +56,12 @@ export default function HomePage({ onOpenCart, cartCount, onAddToCart }) {
       </header>
 
       <main className="max-w-6xl mx-auto px-6 pt-6 space-y-10">
-        {/* Vendor Ad Banners */}
+        {/* Vendors Row - Only Real Stores */}
         <section>
-          <h2 className="text-xs font-semibold tracking-wider text-emerald-400/80 uppercase mb-3">Featured Vendor Spotlight</h2>
-          <div className="grid md:grid-cols-2 gap-4">
-            {vendorAds.map((ad) => (
-              <div key={ad.id} className={`p-5 rounded-2xl border ${ad.bg} flex flex-col justify-between space-y-4 shadow-lg backdrop-blur-sm`}>
-                <div className="flex justify-between items-start">
-                  <span className="text-[10px] uppercase font-bold tracking-widest px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    {ad.badge}
-                  </span>
-                  <span className="text-xs text-[#d8cebe]">{ad.tag}</span>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-[#f4efe6]">{ad.title}</h3>
-                  <p className="text-xs text-[#b0a695] mt-1">Discover handcrafted African fashion direct from creators.</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Vendors Row */}
-        <section>
-          <h2 className="text-sm font-semibold tracking-wide text-[#d8cebe] mb-4">People worth meeting</h2>
+          <h2 className="text-sm font-semibold tracking-wide text-[#d8cebe] mb-4">Active Vendor Stores</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {vendors.map((v, i) => (
-              <div key={i} className="bg-[#141c17] border border-emerald-900/30 p-4 rounded-xl text-center space-y-2 hover:border-emerald-600/40 transition cursor-pointer">
+            {vendors.map((v) => (
+              <div key={v.id} className="bg-[#141c17] border border-emerald-900/30 p-4 rounded-xl text-center space-y-2 hover:border-emerald-600/40 transition cursor-pointer">
                 <div className="w-12 h-12 mx-auto rounded-full bg-emerald-900/50 text-emerald-300 flex items-center justify-center font-bold text-lg border border-emerald-700/40">
                   {v.avatar}
                 </div>
@@ -102,9 +72,9 @@ export default function HomePage({ onOpenCart, cartCount, onAddToCart }) {
           </div>
         </section>
 
-        {/* Product Catalog */}
+        {/* Product Catalog - Only Real Store Items */}
         <section>
-          <h2 className="text-sm font-semibold tracking-wide text-[#d8cebe] mb-4">Fresh finds for today</h2>
+          <h2 className="text-sm font-semibold tracking-wide text-[#d8cebe] mb-4">Store Catalog</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {products.map((p) => (
               <div key={p.id} className="bg-[#141c17] border border-emerald-900/30 rounded-2xl overflow-hidden group hover:border-emerald-600/50 transition">
