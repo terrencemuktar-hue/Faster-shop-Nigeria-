@@ -1,19 +1,49 @@
-import AuthPage from './features/auth/AuthPage';
-import { useAuth } from './features/auth/AuthContext.jsx';
-import HomePage from './features/home/HomePage.jsx';
-import { Analytics } from '@vercel/analytics/react';
+import React, { useState } from 'react';
+import CartDrawer from './CartDrawer';
+import CheckoutModal from './features/checkout/CheckoutModal';
 
 export default function App() {
-  const { user, loading } = useAuth()
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [cartItems, setCartItems] = useState([
+    { id: 1, name: 'Oversized Dark Tee', selectedSize: 'L', quantity: 1, price: 25000 }
+  ]);
 
-  if (loading) {
-    return <div className="loading-state" role="status">Checking your account...</div>
-  }
+  const totalAmount = cartItems.reduce((acc, item) => acc + item.price * (item.quantity || 1), 0);
+  const vendorPhone = '2348012345678';
 
   return (
-    <>
-      {user ? <HomePage /> : <AuthPage />}
-      <Analytics />
-    </>
-  )
+    <div className="min-h-screen bg-black text-white p-6 flex flex-col items-center justify-center">
+      <div className="max-w-md w-full bg-neutral-900 border border-neutral-800 rounded-2xl p-6 text-center shadow-xl">
+        <h1 className="text-2xl font-bold mb-2">Faster Shop</h1>
+        <p className="text-neutral-400 text-sm mb-6">High-end marketplace checkout preview.</p>
+
+        <button
+          onClick={() => setIsCartOpen(true)}
+          className="w-full py-3 bg-white text-black font-semibold rounded-xl hover:bg-neutral-200 transition"
+        >
+          View Cart ({cartItems.length})
+        </button>
+      </div>
+
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        cartItems={cartItems}
+        totalAmount={totalAmount}
+        onProceedToCheckout={() => {
+          setIsCartOpen(false);
+          setIsCheckoutOpen(true);
+        }}
+      />
+
+      <CheckoutModal
+        isOpen={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+        cartItems={cartItems}
+        totalAmount={totalAmount}
+        vendorPhone={vendorPhone}
+      />
+    </div>
+  );
 }
