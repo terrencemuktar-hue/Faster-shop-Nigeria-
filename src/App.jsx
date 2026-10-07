@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import StoryReels from './components/StoryReels';
+import TopHeader from './components/TopHeader';
 import CartDrawer from './CartDrawer';
 import Toast from './components/Toast';
 import ProductDetail from './components/ProductDetail';
@@ -7,7 +8,7 @@ import ShopPage from './pages/ShopPage';
 import ProfilePage from './pages/ProfilePage';
 import OrdersPage from './pages/OrdersPage';
 import { getStoredVendors, getStoredProducts, getStoredWishlist, saveWishlist } from './lib/store';
-import { Home, ShoppingBag, Search, Heart, User, Store, MessageSquare, Bell, Settings, X, Send, CheckCircle, MapPin, Globe, ShieldCheck } from 'lucide-react';
+import { Home, ShoppingBag, Search, Heart, User, Store, X, Send, MapPin, Globe, ShieldCheck, Bell } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -17,12 +18,10 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-  // Modal states for the 3 top icons
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Chat message input state
   const [chatMessages, setChatMessages] = useState([
     { sender: 'support', text: 'Hello! Welcome to Faster Shop Nigeria. How can we assist your order today?' }
   ]);
@@ -76,67 +75,21 @@ export default function App() {
     }, 1000);
   };
 
+  const totalCartCount = cart.reduce((a, b) => a + (b.quantity || 1), 0);
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center selection:bg-emerald-500 selection:text-black">
       <div className="w-full max-w-[430px] min-h-screen bg-zinc-950 flex flex-col relative shadow-2xl border-x border-zinc-900">
         
-        {/* Top Header */}
-        <header className="sticky top-0 z-40 bg-zinc-950/90 backdrop-blur-md px-4 py-3.5 border-b border-zinc-900 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
-            <div className="w-9 h-9 bg-emerald-500 rounded-xl flex items-center justify-center font-black text-zinc-950 text-lg shadow-lg shadow-emerald-950/50">
-              F
-            </div>
-            <div>
-              <h1 className="font-extrabold text-sm tracking-tight text-white">Faster Shop</h1>
-              <p className="text-[10px] text-zinc-400">Nigeria Marketplace</p>
-            </div>
-          </div>
+        <TopHeader 
+          onOpenChat={() => setIsChatOpen(true)}
+          onOpenNotif={() => setIsNotifOpen(true)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenCart={() => setIsCartOpen(true)}
+          cartCount={totalCartCount}
+          onGoHome={() => setActiveTab('home')}
+        />
 
-          <div className="flex items-center gap-2">
-            {/* 1. Chat Icon with Red Badge */}
-            <button 
-              onClick={() => setIsChatOpen(true)}
-              className="relative p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800 transition"
-              title="Messages & Support"
-            >
-              <MessageSquare className="w-4 h-4 text-white" />
-              <span className="absolute -top-1 -right-1 bg-pink-500 w-2.5 h-2.5 rounded-full animate-pulse"></span>
-            </button>
-
-            {/* 2. Notification Bell Icon */}
-            <button 
-              onClick={() => setIsNotifOpen(true)}
-              className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800 transition"
-              title="Notifications"
-            >
-              <Bell className="w-4 h-4 text-amber-400 fill-amber-400/20" />
-            </button>
-
-            {/* 3. Settings Gear Icon */}
-            <button 
-              onClick={() => setIsSettingsOpen(true)}
-              className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800 transition"
-              title="Settings"
-            >
-              <Settings className="w-4 h-4 text-zinc-300" />
-            </button>
-
-            {/* Cart Button */}
-            <button 
-              onClick={() => setIsCartOpen(true)}
-              className="relative p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-white hover:bg-zinc-800 transition"
-            >
-              <ShoppingBag className="w-5 h-5 text-emerald-400" />
-              {cart.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-emerald-500 text-zinc-950 text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center">
-                  {cart.reduce((a, b) => a + (b.quantity || 1), 0)}
-                </span>
-              )}
-            </button>
-          </div>
-        </header>
-
-        {/* Main Body */}
         <main className="flex-1">
           {activeTab === 'home' && (
             <div className="space-y-4 pb-24">
@@ -199,9 +152,7 @@ export default function App() {
           {activeTab === 'profile' && <ProfilePage showToast={triggerToast} onNavigateOrders={() => setActiveTab('orders')} />}
         </main>
 
-        {/* --- INTERACTIVE MODALS FOR TOP 3 BUTTONS --- */}
-
-        {/* 1. Support Chat Modal */}
+        {/* MODALS */}
         {isChatOpen && (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
             <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl text-white h-[80vh] sm:h-[500px] flex flex-col">
@@ -210,7 +161,7 @@ export default function App() {
                   <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
                   <h3 className="font-bold text-sm">Faster Shop Support & Vendor Chat</h3>
                 </div>
-                <button onClick={() => setIsChatOpen(false)} className="p-1.5 rounded-full bg-zinc-800 hover:bg-zinc-700">
+                <button onClick={() => setIsChatOpen(false)} className="p-1.5 rounded-full bg-zinc-800 hover:bg-zinc-700 cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -233,7 +184,7 @@ export default function App() {
                   onChange={(e) => setInputMsg(e.target.value)}
                   className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                 />
-                <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1">
+                <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer">
                   <Send className="w-3.5 h-3.5" />
                 </button>
               </form>
@@ -241,7 +192,6 @@ export default function App() {
           </div>
         )}
 
-        {/* 2. Notifications Modal */}
         {isNotifOpen && (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl text-white p-5 space-y-4">
@@ -250,11 +200,10 @@ export default function App() {
                   <Bell className="w-5 h-5 text-amber-400" />
                   <h3 className="font-bold text-sm">Notifications</h3>
                 </div>
-                <button onClick={() => setIsNotifOpen(false)} className="p-1 rounded-full bg-zinc-800 hover:bg-zinc-700">
+                <button onClick={() => setIsNotifOpen(false)} className="p-1 rounded-full bg-zinc-800 hover:bg-zinc-700 cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
               </div>
-
               <div className="space-y-3">
                 <div className="bg-zinc-800/60 p-3 rounded-2xl border border-zinc-700/50 space-y-1">
                   <div className="flex justify-between items-center text-[10px] text-zinc-400">
@@ -273,15 +222,13 @@ export default function App() {
                   <p className="text-[11px] text-zinc-400">Your order has been dispatched via rider delivery.</p>
                 </div>
               </div>
-
-              <button onClick={() => setIsNotifOpen(false)} className="w-full bg-zinc-800 hover:bg-zinc-700 py-2.5 rounded-xl text-xs font-semibold">
+              <button onClick={() => setIsNotifOpen(false)} className="w-full bg-zinc-800 hover:bg-zinc-700 py-2.5 rounded-xl text-xs font-semibold cursor-pointer">
                 Close
               </button>
             </div>
           </div>
         )}
 
-        {/* 3. Settings Modal */}
         {isSettingsOpen && (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl text-white p-5 space-y-4">
@@ -290,11 +237,10 @@ export default function App() {
                   <Settings className="w-5 h-5 text-emerald-400" />
                   <h3 className="font-bold text-sm">Account Settings</h3>
                 </div>
-                <button onClick={() => setIsSettingsOpen(false)} className="p-1 rounded-full bg-zinc-800 hover:bg-zinc-700">
+                <button onClick={() => setIsSettingsOpen(false)} className="p-1 rounded-full bg-zinc-800 hover:bg-zinc-700 cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
               </div>
-
               <div className="space-y-3">
                 <div className="flex items-center justify-between bg-zinc-800/50 p-3 rounded-2xl text-xs">
                   <div className="flex items-center gap-2">
@@ -318,10 +264,9 @@ export default function App() {
                   <span className="text-emerald-400 font-bold">Active</span>
                 </div>
               </div>
-
               <button 
                 onClick={() => { setIsSettingsOpen(false); setActiveTab('profile'); }}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl text-xs font-bold transition"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl text-xs font-bold transition cursor-pointer"
               >
                 Open Full Profile & Dashboard
               </button>
@@ -329,18 +274,14 @@ export default function App() {
           </div>
         )}
 
-        {/* Product Detail Modal */}
         {selectedProduct && (
           <ProductDetail product={selectedProduct} onClose={() => setSelectedProduct(null)} onAddToCart={handleAddToCart} showToast={triggerToast} />
         )}
 
-        {/* Cart Drawer */}
         <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cart={cart} setCart={setCart} />
 
-        {/* Toast */}
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-        {/* Bottom Navigation */}
         <nav className="fixed bottom-0 w-full max-w-[430px] bg-[#121212] border-t border-zinc-800 py-3 px-6 flex items-center justify-between z-40 shadow-2xl">
           <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1 ${activeTab === 'home' ? 'text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
             <Home className="w-5 h-5" /><span className="text-[10px] font-medium">Home</span>
