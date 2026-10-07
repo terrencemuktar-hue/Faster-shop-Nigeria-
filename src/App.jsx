@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import HomePage from './features/home/HomePage';
 import CartDrawer from './CartDrawer';
 import CheckoutModal from './features/checkout/CheckoutModal';
 
@@ -12,19 +13,17 @@ export default function App() {
   const totalAmount = cartItems.reduce((acc, item) => acc + item.price * (item.quantity || 1), 0);
   const vendorPhone = '2348012345678';
 
-  return (
-    <div className="min-h-screen bg-black text-white p-6 flex flex-col items-center justify-center">
-      <div className="max-w-md w-full bg-neutral-900 border border-neutral-800 rounded-2xl p-6 text-center shadow-xl">
-        <h1 className="text-2xl font-bold mb-2">Faster Shop</h1>
-        <p className="text-neutral-400 text-sm mb-6">High-end marketplace checkout preview.</p>
+  const handleAddToCart = (item) => {
+    setCartItems((prev) => [...prev, item]);
+  };
 
-        <button
-          onClick={() => setIsCartOpen(true)}
-          className="w-full py-3 bg-white text-black font-semibold rounded-xl hover:bg-neutral-200 transition"
-        >
-          View Cart ({cartItems.length})
-        </button>
-      </div>
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <HomePage 
+        onOpenCart={() => setIsCartOpen(true)} 
+        cartCount={cartItems.length}
+        onAddToCart={handleAddToCart}
+      />
 
       <CartDrawer
         isOpen={isCartOpen}
