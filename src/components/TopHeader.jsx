@@ -15,7 +15,6 @@ export default function TopHeader({ onOpenChat, onOpenNotif, onOpenSettings, onO
       </div>
 
       <div className="flex items-center gap-2 relative z-50">
-        {/* Support Chat */}
         <button 
           type="button"
           onClick={(e) => { e.stopPropagation(); onOpenChat(); }}
@@ -26,7 +25,6 @@ export default function TopHeader({ onOpenChat, onOpenNotif, onOpenSettings, onO
           <span className="absolute -top-1 -right-1 bg-pink-500 w-2.5 h-2.5 rounded-full animate-pulse pointer-events-none"></span>
         </button>
 
-        {/* Notifications */}
         <button 
           type="button"
           onClick={(e) => { e.stopPropagation(); onOpenNotif(); }}
@@ -36,7 +34,6 @@ export default function TopHeader({ onOpenChat, onOpenNotif, onOpenSettings, onO
           <Bell className="w-4 h-4 text-amber-400 fill-amber-400/20 pointer-events-none" />
         </button>
 
-        {/* Settings */}
         <button 
           type="button"
           onClick={(e) => { e.stopPropagation(); onOpenSettings(); }}
@@ -46,7 +43,6 @@ export default function TopHeader({ onOpenChat, onOpenNotif, onOpenSettings, onO
           <Settings className="w-4 h-4 text-zinc-300 pointer-events-none" />
         </button>
 
-        {/* Cart Button */}
         <button 
           type="button"
           onClick={(e) => { e.stopPropagation(); onOpenCart(); }}
