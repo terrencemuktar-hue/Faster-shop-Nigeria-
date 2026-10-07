@@ -7,7 +7,7 @@ import ShopPage from './pages/ShopPage';
 import ProfilePage from './pages/ProfilePage';
 import OrdersPage from './pages/OrdersPage';
 import { getStoredVendors, getStoredProducts, getStoredWishlist, saveWishlist } from './lib/store';
-import { Home, ShoppingBag, Search, Heart, User, Store } from 'lucide-react';
+import { Home, ShoppingBag, Search, Heart, User, Store, MessageSquare, Bell, Settings } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -48,7 +48,7 @@ export default function App() {
       triggerToast('Removed from wishlist', 'wishlist');
     } else {
       updated = [...wishlist, product];
-      triggerToast('You will be notified when RUBIAN GIRL drops new collection', 'wishlist');
+      triggerToast('You will be notified when new collections drop', 'wishlist');
     }
     setWishlist(updated);
     saveWishlist(updated);
@@ -56,11 +56,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center selection:bg-emerald-500 selection:text-black">
-      
-      {/* Mobile-first Wrapper (430px max width container feel on desktop, full mobile width) */}
       <div className="w-full max-w-[430px] min-h-screen bg-zinc-950 flex flex-col relative shadow-2xl border-x border-zinc-900">
         
-        {/* Top Header / Custom Logo */}
         <header className="sticky top-0 z-40 bg-zinc-950/90 backdrop-blur-md px-4 py-3.5 border-b border-zinc-900 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
             <div className="w-9 h-9 bg-emerald-500 rounded-xl flex items-center justify-center font-black text-zinc-950 text-lg shadow-lg shadow-emerald-950/50">
@@ -73,6 +70,27 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button 
+              onClick={() => window.open('https://wa.me/2348000000000?text=Hello%20Faster%20Shop%20Support', '_blank')}
+              className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800 transition"
+              title="Support Chat"
+            >
+              <MessageSquare className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={() => triggerToast('No new notifications', 'info')}
+              className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800 transition"
+              title="Notifications"
+            >
+              <Bell className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={() => setActiveTab('profile')}
+              className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800 transition"
+              title="Settings"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
             <button 
               onClick={() => setIsCartOpen(true)}
               className="relative p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-white hover:bg-zinc-800 transition"
@@ -87,18 +105,15 @@ export default function App() {
           </div>
         </header>
 
-        {/* Main Body Tabs */}
         <main className="flex-1">
           {activeTab === 'home' && (
             <div className="space-y-4 pb-24">
               <StoryReels vendors={vendors} />
-              
               <div className="px-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="font-bold text-base">Featured Drops</h2>
                   <button onClick={() => setActiveTab('shop')} className="text-xs text-emerald-400 font-semibold">See All</button>
                 </div>
-
                 <div className="grid grid-cols-2 gap-3">
                   {products.slice(0, 4).map((p) => (
                     <div 
@@ -128,14 +143,8 @@ export default function App() {
             </div>
           )}
 
-          {activeTab === 'shop' && (
-            <ShopPage onAddToCart={handleAddToCart} onSelectProduct={(p) => setSelectedProduct(p)} />
-          )}
-
-          {activeTab === 'search' && (
-            <ShopPage onAddToCart={handleAddToCart} onSelectProduct={(p) => setSelectedProduct(p)} />
-          )}
-
+          {activeTab === 'shop' && <ShopPage onAddToCart={handleAddToCart} onSelectProduct={(p) => setSelectedProduct(p)} />}
+          {activeTab === 'search' && <ShopPage onAddToCart={handleAddToCart} onSelectProduct={(p) => setSelectedProduct(p)} />}
           {activeTab === 'wishlist' && (
             <div className="max-w-7xl mx-auto px-4 py-6 space-y-4 pb-24">
               <h1 className="text-xl font-bold">Saved Wishlist</h1>
@@ -154,60 +163,33 @@ export default function App() {
               )}
             </div>
           )}
-
-          {activeTab === 'orders' && (
-            <OrdersPage />
-          )}
-
-          {activeTab === 'profile' && (
-            <ProfilePage showToast={triggerToast} onNavigateOrders={() => setActiveTab('orders')} />
-          )}
+          {activeTab === 'orders' && <OrdersPage />}
+          {activeTab === 'profile' && <ProfilePage showToast={triggerToast} onNavigateOrders={() => setActiveTab('orders')} />}
         </main>
 
-        {/* Product Detail Modal */}
         {selectedProduct && (
-          <ProductDetail 
-            product={selectedProduct} 
-            onClose={() => setSelectedProduct(null)} 
-            onAddToCart={handleAddToCart}
-            showToast={triggerToast}
-          />
+          <ProductDetail product={selectedProduct} onClose={() => setSelectedProduct(null)} onAddToCart={handleAddToCart} showToast={triggerToast} />
         )}
 
-        {/* Cart Drawer */}
-        <CartDrawer 
-          isOpen={isCartOpen} 
-          onClose={() => setIsCartOpen(false)} 
-          cart={cart} 
-          setCart={setCart} 
-        />
+        <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cart={cart} setCart={setCart} />
 
-        {/* Toast Notifications */}
-        {toast && (
-          <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-        )}
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-        {/* Bottom Navigation */}
         <nav className="fixed bottom-0 w-full max-w-[430px] bg-[#121212] border-t border-zinc-800 py-3 px-6 flex items-center justify-between z-40 shadow-2xl">
           <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1 ${activeTab === 'home' ? 'text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
-            <Home className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Home</span>
+            <Home className="w-5 h-5" /><span className="text-[10px] font-medium">Home</span>
           </button>
           <button onClick={() => setActiveTab('shop')} className={`flex flex-col items-center gap-1 ${activeTab === 'shop' ? 'text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
-            <Store className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Shop</span>
+            <Store className="w-5 h-5" /><span className="text-[10px] font-medium">Shop</span>
           </button>
           <button onClick={() => setActiveTab('search')} className={`flex flex-col items-center gap-1 ${activeTab === 'search' ? 'text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
-            <Search className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Search</span>
+            <Search className="w-5 h-5" /><span className="text-[10px] font-medium">Search</span>
           </button>
           <button onClick={() => setActiveTab('wishlist')} className={`flex flex-col items-center gap-1 ${activeTab === 'wishlist' ? 'text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
-            <Heart className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Wishlist</span>
+            <Heart className="w-5 h-5" /><span className="text-[10px] font-medium">Wishlist</span>
           </button>
           <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center gap-1 ${activeTab === 'profile' ? 'text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
-            <User className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Profile</span>
+            <User className="w-5 h-5" /><span className="text-[10px] font-medium">Profile</span>
           </button>
         </nav>
 
