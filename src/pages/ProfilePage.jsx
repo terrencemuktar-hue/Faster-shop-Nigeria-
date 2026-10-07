@@ -1,67 +1,66 @@
-import React, { useState } from 'react';
-import OrdersPage from './OrdersPage';
-import AddressesPage from './AddressesPage';
-import AccountSettingsPage from './AccountSettingsPage';
-import { Package, MapPin, Settings, ChevronRight, User, LogOut } from 'lucide-react';
+import React from 'react';
+import { Package, MapPin, Settings, Store, ChevronRight, User, ShieldCheck } from 'lucide-react';
 
-export default function ProfilePage({ showToast, onNavigateOrders }) {
-  const [activeView, setActiveView] = useState('profile');
-
-  if (activeView === 'orders') {
-    return <OrdersPage onBack={() => setActiveView('profile')} />;
-  }
-  if (activeView === 'addresses') {
-    return <AddressesPage onBack={() => setActiveView('profile')} showToast={showToast} />;
-  }
-  if (activeView === 'settings') {
-    return <AccountSettingsPage onBack={() => setActiveView('profile')} showToast={showToast} />;
-  }
-
+export default function ProfilePage({ showToast, onNavigateOrders, onOpenVendorReg }) {
   return (
-    <div className="w-full max-w-[430px] min-h-screen bg-[#121212] text-white flex flex-col p-4 pb-24 space-y-4">
-      <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 p-4 rounded-2xl shadow-lg">
-        <div className="w-12 h-12 rounded-2xl bg-[#00D26A] text-black font-black flex items-center justify-center text-lg">
-          F
+    <div className="px-4 py-6 space-y-4">
+      <div className="flex items-center gap-3 bg-white p-4 rounded-[24px] border border-zinc-200 shadow-sm">
+        <div className="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center font-bold text-base">
+          TN
         </div>
         <div>
-          <h1 className="font-bold text-sm">Faster Shop User</h1>
-          <p className="text-xs text-zinc-400">Nigeria Marketplace Member</p>
+          <h2 className="text-sm font-bold text-black">Nwezeh Terrence Uche</h2>
+          <p className="text-[11px] text-zinc-500">terrence@fastersub.ng</p>
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-lg divide-y divide-zinc-800">
-        <button 
-          onClick={() => setActiveView('orders')}
-          className="w-full text-left p-4 flex justify-between items-center hover:bg-zinc-800/50 active:bg-zinc-800 active:scale-[0.98] transition-all cursor-pointer"
+      <div className="space-y-2">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 px-1">Account & Deliveries</h3>
+        
+        <div 
+          onClick={onNavigateOrders}
+          className="bg-white p-4 rounded-[16px] border border-zinc-200 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all shadow-sm"
         >
           <div className="flex items-center gap-3">
-            <Package className="w-4 h-4 text-[#00D26A]" />
-            <span className="text-xs font-semibold">My Orders & Deliveries</span>
+            <Package className="w-5 h-5 text-zinc-700" />
+            <span className="text-xs font-bold text-black">My Orders & Deliveries</span>
           </div>
-          <ChevronRight className="w-4 h-4 text-zinc-500" />
-        </button>
+          <ChevronRight className="w-4 h-4 text-zinc-400" />
+        </div>
 
-        <button 
-          onClick={() => setActiveView('addresses')}
-          className="w-full text-left p-4 flex justify-between items-center hover:bg-zinc-800/50 active:bg-zinc-800 active:scale-[0.98] transition-all cursor-pointer"
+        <div 
+          onClick={() => showToast && showToast('Saved shipping addresses updated', 'success')}
+          className="bg-white p-4 rounded-[16px] border border-zinc-200 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all shadow-sm"
         >
           <div className="flex items-center gap-3">
-            <MapPin className="w-4 h-4 text-[#FF2D78]" />
-            <span className="text-xs font-semibold">Saved Shipping Addresses</span>
+            <MapPin className="w-5 h-5 text-zinc-700" />
+            <span className="text-xs font-bold text-black">Saved Shipping Addresses</span>
           </div>
-          <ChevronRight className="w-4 h-4 text-zinc-500" />
-        </button>
+          <ChevronRight className="w-4 h-4 text-zinc-400" />
+        </div>
 
-        <button 
-          onClick={() => setActiveView('settings')}
-          className="w-full text-left p-4 flex justify-between items-center hover:bg-zinc-800/50 active:bg-zinc-800 active:scale-[0.98] transition-all cursor-pointer"
+        <div 
+          onClick={() => showToast && showToast('Account settings opened', 'success')}
+          className="bg-white p-4 rounded-[16px] border border-zinc-200 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all shadow-sm"
         >
           <div className="flex items-center gap-3">
-            <Settings className="w-4 h-4 text-amber-400" />
-            <span className="text-xs font-semibold">Account Settings</span>
+            <Settings className="w-5 h-5 text-zinc-700" />
+            <span className="text-xs font-bold text-black">Account Settings</span>
           </div>
-          <ChevronRight className="w-4 h-4 text-zinc-500" />
-        </button>
+          <ChevronRight className="w-4 h-4 text-zinc-400" />
+        </div>
+
+        {/* Vendor Registration Button Card */}
+        <div 
+          onClick={onOpenVendorReg}
+          className="w-full bg-[#22c55e] text-black font-bold p-4 rounded-[12px] flex items-center justify-between shadow-md active:scale-[0.98] transition-all cursor-pointer mt-3"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-lg">🏪</span>
+            <span className="text-xs font-extrabold tracking-tight">Become a Vendor - 0 Followers OK</span>
+          </div>
+          <ChevronRight className="w-4 h-4 text-black stroke-[3]" />
+        </div>
       </div>
     </div>
   );
