@@ -8,7 +8,7 @@ import ShopPage from './pages/ShopPage';
 import ProfilePage from './pages/ProfilePage';
 import OrdersPage from './pages/OrdersPage';
 import { getStoredVendors, getStoredProducts, getStoredWishlist, saveWishlist } from './lib/store';
-import { Home, ShoppingBag, Search, Heart, User, Store, X, Send, MapPin, Globe, ShieldCheck, Bell } from 'lucide-react';
+import { Home, ShoppingBag, Search, Heart, User, Store, X, Send, MapPin, Globe, ShieldCheck, Bell, Settings } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
