@@ -31,7 +31,6 @@ export default function HomePage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Auto-slide carousel every 3 seconds
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentSlide(prev => (prev + 1) % CAROUSEL_IMAGES.length);
@@ -39,7 +38,6 @@ export default function HomePage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch real products from Supabase
   useEffect(() => {
     async function fetchProducts() {
       try {
@@ -67,7 +65,6 @@ export default function HomePage() {
     <div className="min-h-screen bg-black text-white flex flex-col items-center pb-24">
       <div className="w-full max-w-[430px] min-h-screen bg-black flex flex-col relative px-4 space-y-6">
         
-        {/* Top Header */}
         <header className="flex items-center justify-between pt-4 pb-2 border-b border-zinc-900">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-[#22c55e] text-black font-black flex items-center justify-center text-xs shadow-md">
@@ -85,7 +82,6 @@ export default function HomePage() {
           </div>
         </header>
 
-        {/* Hero Carousel Section */}
         <div className="relative w-full h-[380px] rounded-[20px] overflow-hidden border border-zinc-900 shadow-2xl">
           {CAROUSEL_IMAGES.map((img, idx) => (
             <div 
@@ -97,7 +93,6 @@ export default function HomePage() {
             </div>
           ))}
 
-          {/* Carousel Overlay Content */}
           <div className="absolute inset-0 flex flex-col justify-end p-6 space-y-4">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#22c55e]/20 border border-[#22c55e]/40 text-[#22c55e] text-[10px] font-extrabold w-max backdrop-blur-md">
               <Sparkles className="w-3 h-3" /> Nigeria's Fastest Fashion Market
@@ -123,7 +118,6 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* Dots indicator */}
             <div className="flex justify-center gap-1.5 pt-1">
               {CAROUSEL_IMAGES.map((_, i) => (
                 <button
@@ -136,12 +130,10 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Conditional Sections */}
         {loading ? (
           <div className="text-center py-12 text-xs text-zinc-500">Loading marketplace...</div>
         ) : products.length === 0 ? (
           <>
-            {/* First Vendors Get Banner */}
             <div className="bg-gradient-to-r from-zinc-900 to-zinc-950 border border-zinc-800 p-4 rounded-[16px] flex items-center justify-between shadow-md">
               <div className="space-y-0.5">
                 <div className="text-xs font-bold text-white flex items-center gap-1.5">
@@ -154,7 +146,6 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* How it Works */}
             <div className="space-y-3">
               <h2 className="text-xs font-bold tracking-wider uppercase text-zinc-400">How It Works</h2>
               <div className="grid grid-cols-3 gap-2.5">
@@ -176,7 +167,6 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Categories to Explore */}
             <div className="space-y-3">
               <h2 className="text-xs font-bold tracking-wider uppercase text-zinc-400">Categories to Explore</h2>
               <div className="grid grid-cols-2 gap-3">
@@ -193,7 +183,6 @@ export default function HomePage() {
             </div>
           </>
         ) : (
-          /* Featured Drops when real products exist */
           <div className="space-y-3">
             <h2 className="text-xs font-bold tracking-wider uppercase text-zinc-400">Featured Drops</h2>
             <div className="grid grid-cols-2 gap-3">
