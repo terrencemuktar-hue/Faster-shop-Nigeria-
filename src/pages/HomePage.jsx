@@ -2,6 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Store } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
+const storyReels = [
+  { name: "Aura Lagos", img: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400" },
+  { name: "Kano Crafts", img: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400" },
+  { name: "Lekki Thr...", img: "https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?w=400" }
+];
+
 const carouselImages = [
   "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800",
   "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800",
@@ -9,15 +15,6 @@ const carouselImages = [
   "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=800",
   "https://images.unsplash.com/photo-1551232864-3f0890e580d9?w=800",
   "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=800"
-];
-
-const categories = [
-  { name: "Streetwear", img: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400" },
-  { name: "Native", img: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400" },
-  { name: "Gowns", img: "https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?w=400" },
-  { name: "Shoes", img: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=400" },
-  { name: "Bags", img: "https://images.unsplash.com/photo-1551232864-3f0890e580d9?w=400" },
-  { name: "Accessories", img: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=400" }
 ];
 
 export default function HomePage({ onNavigate }) {
@@ -44,101 +41,75 @@ export default function HomePage({ onNavigate }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
-      {/* Hero Carousel */}
-      <div className="max-w-6xl mx-auto p-4 pt-4">
-        <div className="relative h-[380px] rounded-[16px] overflow-hidden border border-[#222222] bg-[#111111]">
-          <img
-            src={carouselImages[currentIdx]}
-            alt="Fashion Outfit"
-            className="w-full h-full object-cover transition-all duration-700 brightness-75"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent flex flex-col justify-end p-6 md:p-10 space-y-3">
-            <span className="bg-[#22c55e]/20 text-[#22c55e] border border-[#22c55e]/30 px-3 py-1 rounded-full text-xs font-semibold w-max">
-              🔥 Nigeria's Fastest Fashion Market
-            </span>
-            <h1 className="text-3xl md:text-5xl font-black tracking-tight">Be the first vendor. 0 followers OK.</h1>
-            <p className="text-zinc-300 text-sm max-w-lg">
-              List your fashion items instantly and receive direct orders on WhatsApp with zero stress.
-            </p>
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => onNavigate("vendor")}
-                className="bg-[#22c55e] text-black font-bold px-6 py-3 rounded-[16px] flex items-center gap-2 hover:opacity-90 transition shadow-lg shadow-[#22c55e]/20"
-              >
-                <Store size={18} /> Become a Vendor Now
-              </button>
-              <button
-                onClick={() => onNavigate("shop")}
-                className="border border-white/20 bg-white/10 backdrop-blur font-semibold px-6 py-3 rounded-[16px] hover:bg-white/20 transition"
-              >
-                Shop Now
-              </button>
+    <div className="min-h-screen bg-[#f5f5f7] pb-[100px]">
+      {/* HEADER - BLACK */}
+      <header className="bg-black px-4 pt-3 pb-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => onNavigate("home")}>
+            <div className="w-9 h-9 bg-white rounded-[10px] flex items-center justify-center shadow-md">
+              <div className="w-5 h-5 bg-black rounded flex items-center justify-center text-white font-black text-xs">F</div>
+            </div>
+            <div>
+              <h1 className="text-white font-black text-[15px] tracking-widest leading-none">FASTER</h1>
+              <p className="text-gray-400 text-[9px] tracking-[3px]">SHOP NIGERIA</p>
             </div>
           </div>
-          <div className="absolute bottom-4 right-6 flex gap-1.5">
-            {carouselImages.map((_, i) => (
-              <div
-                key={i}
-                className={`w-2 h-2 rounded-full ${i === currentIdx ? "bg-[#22c55e] w-6" : "bg-white/40"} transition-all duration-300`}
-              ></div>
-            ))}
+          <div className="flex gap-4 items-center text-white text-lg">
+            <button className="hover:opacity-80">💬</button>
+            <button className="text-yellow-400 hover:opacity-80">🔔</button>
+            <button className="hover:opacity-80">⚙️</button>
+            <button className="hover:opacity-80">👜</button>
           </div>
+        </div>
+        <div className="mt-3.5 bg-white rounded-full flex items-center px-4 py-2.5 shadow-sm">
+          <span className="text-gray-400 mr-2">🔍</span>
+          <input placeholder="Search" className="bg-transparent outline-none w-full text-sm text-black placeholder-gray-400" />
+        </div>
+      </header>
+
+      {/* Vendor Story Reels */}
+      <div className="bg-[#262626] py-3 px-4 border-b border-zinc-800">
+        <div className="flex gap-4 overflow-x-auto no-scrollbar">
+          {storyReels.map((reel, i) => (
+            <div key={i} className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer" onClick={() => onNavigate("shop")}>
+              <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-yellow-400 via-pink-500 to-emerald-400">
+                <img src={reel.img} alt={reel.name} className="w-full h-full object-cover rounded-full border-2 border-black" />
+              </div>
+              <span className="text-[11px] text-zinc-300 font-medium truncate max-w-[64px]">{reel.name}</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* How It Works & Categories */}
-      <div className="max-w-6xl mx-auto p-4 py-8 space-y-8">
-        {products.length === 0 ? (
-          <>
-            <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold">How Faster Shop Works</h2>
-              <p className="text-zinc-400 text-sm">Start selling or shopping in 3 simple steps</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-[#111111] border border-[#222222] p-6 rounded-[16px] space-y-3">
-                <div className="w-10 h-10 rounded-[16px] bg-[#22c55e]/10 text-[#22c55e] flex items-center justify-center font-bold">1</div>
-                <h3 className="font-semibold text-lg">Register as Vendor</h3>
-                <p className="text-zinc-400 text-sm">Zero follower requirement. Quick signup gets your digital store ready instantly.</p>
-              </div>
-              <div className="bg-[#111111] border border-[#222222] p-6 rounded-[16px] space-y-3">
-                <div className="w-10 h-10 rounded-[16px] bg-[#22c55e]/10 text-[#22c55e] flex items-center justify-center font-bold">2</div>
-                <h3 className="font-semibold text-lg">Post Your Outfits</h3>
-                <p className="text-zinc-400 text-sm">Upload photos, set prices, and categorize your clothing items with ease.</p>
-              </div>
-              <div className="bg-[#111111] border border-[#222222] p-6 rounded-[16px] space-y-3">
-                <div className="w-10 h-10 rounded-[16px] bg-[#22c55e]/10 text-[#22c55e] flex items-center justify-center font-bold">3</div>
-                <h3 className="font-semibold text-lg">Get Orders on WhatsApp</h3>
-                <p className="text-zinc-400 text-sm">Buyers order directly through WhatsApp with delivery and payment secured.</p>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {products.map((p) => (
-              <div key={p.id} className="bg-[#111111] border border-[#222222] rounded-[16px] overflow-hidden p-3 space-y-2">
-                <img src={p.image_url} alt={p.name} className="w-full h-44 object-cover rounded-[16px]" />
-                <h3 className="font-semibold text-sm truncate">{p.name}</h3>
-                <p className="text-[#22c55e] font-bold text-sm">₦{Number(p.price).toLocaleString()}</p>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Featured Drops Header & Carousel / Grid */}
+      <div className="p-4 space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="font-bold text-black text-base">Featured Drops</h2>
+          <button onClick={() => onNavigate("shop")} className="text-xs text-[#22c55e] font-bold hover:underline">
+            See All
+          </button>
+        </div>
 
-        <div className="space-y-4 pt-4">
-          <h2 className="text-xl font-bold">Categories to Explore</h2>
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-            {categories.map((cat, i) => (
-              <div
-                key={i}
-                onClick={() => onNavigate("shop")}
-                className="group relative h-40 rounded-[16px] overflow-hidden border border-[#222222] cursor-pointer"
-              >
-                <img src={cat.img} alt={cat.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500 brightness-75" />
-                <div className="absolute inset-0 bg-black/40 flex items-end p-4">
-                  <span className="font-semibold text-sm">{cat.name}</span>
-                </div>
-              </div>
+        <div className="relative h-[380px] rounded-[24px] overflow-hidden border border-gray-200 bg-white shadow-sm">
+          <img
+            src={carouselImages[currentIdx]}
+            alt="Outfit"
+            className="w-full h-full object-cover transition-all duration-700"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-5 space-y-2">
+            <span className="bg-[#22c55e] text-black font-extrabold px-3 py-1 rounded-full text-xs w-max">
+              MODELS 20S, 20S
+            </span>
+            <h3 className="text-white text-xl font-bold">Nigeria's Fastest Fashion Market</h3>
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => onNavigate("vendor")} className="bg-[#22c55e] text-black font-bold px-4 py-2.5 rounded-[16px] text-xs">
+                Become a Vendor
+              </button>
+            </div>
+          </div>
+          <div className="absolute bottom-4 right-5 flex gap-1.5">
+            {carouselImages.map((_, i) => (
+              <div key={i} className={`w-2 h-2 rounded-full ${i === currentIdx ? "bg-[#22c55e] w-5" : "bg-white/50"} transition-all`}></div>
             ))}
           </div>
         </div>

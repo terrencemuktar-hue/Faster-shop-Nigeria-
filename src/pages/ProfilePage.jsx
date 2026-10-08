@@ -1,65 +1,75 @@
-import React from 'react';
-import { Package, MapPin, Settings, Store, ChevronRight, User, ShieldCheck } from 'lucide-react';
-
-export default function ProfilePage({ showToast, onNavigateOrders, onOpenVendorReg }) {
+export default function ProfilePage({ onNavigate }) {
   return (
-    <div className="px-4 py-6 space-y-4">
-      <div className="flex items-center gap-3 bg-white p-4 rounded-[24px] border border-zinc-200 shadow-sm">
-        <div className="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center font-bold text-base">
-          TN
-        </div>
-        <div>
-          <h2 className="text-sm font-bold text-black">Nwezeh Terrence Uche</h2>
-          <p className="text-[11px] text-zinc-500">terrence@fastersub.ng</p>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 px-1">Account & Deliveries</h3>
-        
-        <div 
-          onClick={onNavigateOrders}
-          className="bg-white p-4 rounded-[16px] border border-zinc-200 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <Package className="w-5 h-5 text-zinc-700" />
-            <span className="text-xs font-bold text-black">My Orders & Deliveries</span>
+    <div className="min-h-screen bg-[#f5f5f7] pb-[100px]">
+      {/* HEADER - BLACK */}
+      <header className="bg-black px-4 pt-3 pb-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => onNavigate("home")}>
+            <div className="w-9 h-9 bg-white rounded-[10px] flex items-center justify-center shadow-md">
+              <div className="w-5 h-5 bg-black rounded flex items-center justify-center text-white font-black text-xs">F</div>
+            </div>
+            <div>
+              <h1 className="text-white font-black text-[15px] tracking-widest leading-none">FASTER</h1>
+              <p className="text-gray-400 text-[9px] tracking-[3px]">SHOP NIGERIA</p>
+            </div>
           </div>
-          <ChevronRight className="w-4 h-4 text-zinc-400" />
-        </div>
-
-        <div 
-          onClick={() => showToast && showToast('Saved shipping addresses updated', 'success')}
-          className="bg-white p-4 rounded-[16px] border border-zinc-200 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <MapPin className="w-5 h-5 text-zinc-700" />
-            <span className="text-xs font-bold text-black">Saved Shipping Addresses</span>
+          <div className="flex gap-4 items-center text-white text-lg">
+            <button className="hover:opacity-80">💬</button>
+            <button className="text-yellow-400 hover:opacity-80">🔔</button>
+            <button className="hover:opacity-80">⚙️</button>
+            <button className="hover:opacity-80">👜</button>
           </div>
-          <ChevronRight className="w-4 h-4 text-zinc-400" />
         </div>
+        <div className="mt-3.5 bg-white rounded-full flex items-center px-4 py-2.5 shadow-sm">
+          <span className="text-gray-400 mr-2">🔍</span>
+          <input placeholder="Search" className="bg-transparent outline-none w-full text-sm text-black placeholder-gray-400" />
+        </div>
+      </header>
 
-        <div 
-          onClick={() => showToast && showToast('Account settings opened', 'success')}
-          className="bg-white p-4 rounded-[16px] border border-zinc-200 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <Settings className="w-5 h-5 text-zinc-700" />
-            <span className="text-xs font-bold text-black">Account Settings</span>
+      {/* PROFILE CARD & SECTIONS */}
+      <div className="p-4 space-y-4">
+        <div className="bg-white rounded-[24px] p-5 flex items-center gap-4 shadow-sm border border-gray-100">
+          <div className="w-14 h-14 bg-black rounded-full flex items-center justify-center text-white font-bold text-base">TN</div>
+          <div>
+            <h2 className="font-bold text-black text-base">Nwezeh Terrence Uche</h2>
+            <p className="text-gray-500 text-xs">terrence@fastersub.ng</p>
           </div>
-          <ChevronRight className="w-4 h-4 text-zinc-400" />
         </div>
 
-        {/* Vendor Registration Button Card */}
-        <div 
-          onClick={onOpenVendorReg}
-          className="w-full bg-[#22c55e] text-black font-bold p-4 rounded-[12px] flex items-center justify-between shadow-md active:scale-[0.98] transition-all cursor-pointer mt-3"
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-lg">🏪</span>
-            <span className="text-xs font-extrabold tracking-tight">Become a Vendor - 0 Followers OK</span>
+        <h3 className="text-gray-500 text-[11px] font-bold tracking-wider pt-2 px-1">ACCOUNT & DELIVERIES</h3>
+
+        <div className="space-y-3">
+          <div onClick={() => onNavigate("orders")} className="bg-white rounded-[16px] p-4 flex justify-between items-center shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 transition">
+            <div className="flex items-center gap-3">
+              <span className="text-lg">📦</span>
+              <span className="font-semibold text-black text-sm">My Orders & Deliveries</span>
+            </div>
+            <span className="text-gray-400 font-semibold">{'>'}</span>
           </div>
-          <ChevronRight className="w-4 h-4 text-black stroke-[3]" />
+
+          <div onClick={() => onNavigate("addresses")} className="bg-white rounded-[16px] p-4 flex justify-between items-center shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 transition">
+            <div className="flex items-center gap-3">
+              <span className="text-lg">📍</span>
+              <span className="font-semibold text-black text-sm">Saved Shipping Addresses</span>
+            </div>
+            <span className="text-gray-400 font-semibold">{'>'}</span>
+          </div>
+
+          <div onClick={() => onNavigate("settings")} className="bg-white rounded-[16px] p-4 flex justify-between items-center shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 transition">
+            <div className="flex items-center gap-3">
+              <span className="text-lg">⚙️</span>
+              <span className="font-semibold text-black text-sm">Account Settings</span>
+            </div>
+            <span className="text-gray-400 font-semibold">{'>'}</span>
+          </div>
+
+          <div onClick={() => onNavigate("vendor")} className="bg-[#22c55e] rounded-[16px] p-4 flex justify-between items-center shadow-md cursor-pointer hover:opacity-95 transition">
+            <div className="flex items-center gap-3">
+              <span className="text-lg">🏪</span>
+              <span className="font-bold text-black text-sm">Become a Vendor - 0 Followers OK</span>
+            </div>
+            <span className="text-black font-extrabold">{'>'}</span>
+          </div>
         </div>
       </div>
     </div>
