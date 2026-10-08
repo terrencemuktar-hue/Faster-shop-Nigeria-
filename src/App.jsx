@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from './firebase';
+import { supabase } from '../lib/supabase';
 
 // --- HEADER COMPONENT ---
 function Header({ onNavigate, searchVal, setSearchVal }) {
