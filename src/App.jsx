@@ -146,12 +146,12 @@ function HomePage({ onNavigate, setSelectedVendor, setSelectedProduct }) {
         {featuredProduct ? (
           <div className="bg-white rounded-[24px] overflow-hidden shadow-md relative">
             <div className="relative h-[380px] w-full">
-              <img src={featuredProduct.image} alt={featuredProduct.name} className="w-full h-full object-cover" />
+              <img src={featuredProduct?.image || ""} alt={featuredProduct?.name || ""} className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-5">
                 <span className="bg-[#22c55e] text-black text-xs font-bold px-3 py-1 rounded-full w-max mb-2">
                   {featuredProduct.category || 'Featured'}
                 </span>
-                <h3 className="text-white font-bold text-xl">{featuredProduct.name}</h3>
+                <h3 className="text-white font-bold text-xl">{featuredProduct?.name || ""}</h3>
                 <p className="text-green-400 font-black text-lg mt-1">₦{featuredProduct.price}</p>
                 <button 
                   onClick={() => { setSelectedProduct(featuredProduct); onNavigate('product'); }}
@@ -315,8 +315,8 @@ function SearchPage({ onNavigate, setSelectedProduct }) {
             <div className="grid grid-cols-2 gap-3">
               {products.map(p => (
                 <div key={p.id} onClick={() => { setSelectedProduct(p); onNavigate('product'); }} className="bg-white p-3 rounded-[16px] shadow-sm cursor-pointer">
-                  <img src={p.image} className="w-full h-36 object-cover rounded-[12px]" />
-                  <h4 className="font-bold text-xs mt-2 truncate">{p.name}</h4>
+                  <img src={p?.image || ""} className="w-full h-36 object-cover rounded-[12px]" />
+                  <h4 className="font-bold text-xs mt-2 truncate">{p?.name || ""}</h4>
                   <p className="text-green-600 font-black text-xs">₦{p.price}</p>
                 </div>
               ))}
@@ -326,9 +326,9 @@ function SearchPage({ onNavigate, setSelectedProduct }) {
       ) : (
         <div className="grid grid-cols-2 gap-3">
           {categories.map((c, i) => (
-            <div key={i} onClick={() => setSelectedCat(c.name)} className={`${c.bg} p-4 rounded-[18px] flex items-center gap-3 cursor-pointer shadow-sm hover:scale-[1.02] transition`}>
+            <div key={i} onClick={() => setSelectedCat(c?.name || "")} className={`${c.bg} p-4 rounded-[18px] flex items-center gap-3 cursor-pointer shadow-sm hover:scale-[1.02] transition`}>
               <span className="text-2xl">{c.emoji}</span>
-              <span className="font-bold text-sm">{c.name}</span>
+              <span className="font-bold text-sm">{c?.name || ""}</span>
             </div>
           ))}
         </div>
@@ -359,8 +359,8 @@ function WishlistPage({ onNavigate, setSelectedProduct }) {
           {wishlist.map(item => (
             <div key={item.id} onClick={() => { setSelectedProduct(item); onNavigate('product'); }} className="bg-white rounded-[16px] overflow-hidden shadow-sm p-3 relative cursor-pointer">
               <button className="absolute top-4 right-4 bg-white p-1.5 rounded-full shadow text-red-500">❤️</button>
-              <img src={item.image} className="w-full h-36 object-cover rounded-[12px]" />
-              <h3 className="font-bold text-xs mt-2 truncate">{item.name}</h3>
+              <img src={item?.image || ""} className="w-full h-36 object-cover rounded-[12px]" />
+              <h3 className="font-bold text-xs mt-2 truncate">{item?.name || ""}</h3>
               <p className="text-green-600 font-black text-sm">₦{item.price}</p>
             </div>
           ))}
@@ -405,9 +405,9 @@ function CartPage({ onNavigate }) {
         <div>
           {cartItems.map(item => (
             <div key={item.id} className="bg-white p-3 rounded-[16px] mb-3 flex items-center gap-3 shadow-sm">
-              <img src={item.image} className="w-16 h-16 rounded-[10px] object-cover" />
+              <img src={item?.image || ""} className="w-16 h-16 rounded-[10px] object-cover" />
               <div className="flex-1">
-                <h4 className="font-bold text-sm">{item.name}</h4>
+                <h4 className="font-bold text-sm">{item?.name || ""}</h4>
                 <p className="text-green-600 font-bold text-xs">₦{item.price}</p>
               </div>
             </div>
@@ -483,7 +483,7 @@ function AddressesPage({ onNavigate }) {
       {addresses.map(a => (
         <div key={a.id} className="bg-white p-4 rounded-[20px] shadow-sm mb-3">
           <div className="flex justify-between items-center mb-1">
-            <h4 className="font-bold text-sm">{a.name}</h4>
+            <h4 className="font-bold text-sm">{a?.name || ""}</h4>
             {a.isDefault && <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold">Default</span>}
           </div>
           <p className="text-xs text-gray-600">{a.street}, {a.city}</p>

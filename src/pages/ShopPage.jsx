@@ -36,7 +36,7 @@ export default function ShopPage({ onAddToCart, onSelectProduct }) {
   const priceRanges = ['All', 'Under N100k', 'N100k-N200k', 'Above N200k'];
 
   const filtered = products.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = item?.name || "".toLowerCase().includes(searchQuery.toLowerCase()) ||
                           item.vendor?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCat = selectedCategory === 'All' || item.category === selectedCategory;
     const matchesSize = selectedSize === 'All' || (item.sizes && item.sizes.includes(selectedSize)) || true;
@@ -138,13 +138,13 @@ export default function ShopPage({ onAddToCart, onSelectProduct }) {
               >
                 <div>
                   <div className="relative aspect-square overflow-hidden bg-zinc-800">
-                    <img src={product.image || product.img} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                    <img src={product?.image || "" || product.img} alt={product?.name || ""} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
                     <span className="absolute top-2.5 left-2.5 bg-black/70 backdrop-blur-md text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
                       {product.vendor || 'RUBIAN GIRL'}
                     </span>
                   </div>
                   <div className="p-3 space-y-1">
-                    <h3 className="font-semibold text-xs text-zinc-200 truncate">{product.name}</h3>
+                    <h3 className="font-semibold text-xs text-zinc-200 truncate">{product?.name || ""}</h3>
                     <div className="flex items-center justify-between">
                       <span className="text-emerald-400 font-bold text-sm">₦{product.price?.toLocaleString()}</span>
                       <div className="flex items-center gap-1 text-amber-400 text-xs">

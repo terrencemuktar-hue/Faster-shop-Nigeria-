@@ -49,13 +49,13 @@ export default function SearchPage({ setSelectedVendor, setSelectedProduct }) {
               {brands.map((b, i) => (
                 <div 
                   key={i} 
-                  onClick={() => setSelectedVendor(b.name)}
+                  onClick={() => setSelectedVendor(b?.name || "")}
                   className="flex flex-col items-center cursor-pointer group"
                 >
                   <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#FF2D78] p-0.5 shadow-md group-hover:scale-105 transition">
-                    <img src={b.avatar} alt={b.name} className="w-full h-full object-cover rounded-full" />
+                    <img src={b.avatar} alt={b?.name || ""} className="w-full h-full object-cover rounded-full" />
                   </div>
-                  <span className="text-[11px] font-semibold text-neutral-800 mt-1.5 text-center truncate w-full">{b.name}</span>
+                  <span className="text-[11px] font-semibold text-neutral-800 mt-1.5 text-center truncate w-full">{b?.name || ""}</span>
                 </div>
               ))}
             </div>
@@ -74,7 +74,7 @@ export default function SearchPage({ setSelectedVendor, setSelectedProduct }) {
                 className="bg-white rounded-[18px] p-3 shadow-sm border border-neutral-100 cursor-pointer group"
               >
                 <div className="aspect-[4/5] rounded-[14px] overflow-hidden bg-neutral-100 mb-3">
-                  <img src={product.image} alt={product.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                  <img src={product?.image || ""} alt={product.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
                 </div>
                 <span className="text-[10px] uppercase font-bold text-[#FF2D78] tracking-wider">{product.brand}</span>
                 <h4 className="font-semibold text-xs text-neutral-900 truncate mt-0.5">{product.title}</h4>

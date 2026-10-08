@@ -40,14 +40,14 @@ export default function FeaturedDrops({ products = [], onSelectProduct, onBecome
           >
             <div className="aspect-[4/3] w-full overflow-hidden bg-zinc-100 relative">
               <img 
-                src={product.image || product.img} 
-                alt={product.name} 
+                src={product?.image || "" || product.img} 
+                alt={product?.name || ""} 
                 className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
               />
             </div>
             <div className="p-4 space-y-1.5">
               <div className="flex justify-between items-start">
-                <h3 className="text-sm font-bold text-black tracking-tight">{product.name}</h3>
+                <h3 className="text-sm font-bold text-black tracking-tight">{product?.name || ""}</h3>
                 <span className="text-emerald-600 font-extrabold text-xs">₦{product.price?.toLocaleString()}</span>
               </div>
               <p className="text-[11px] text-zinc-500 font-medium">{product.vendorName || 'Verified Nigerian Vendor'}</p>

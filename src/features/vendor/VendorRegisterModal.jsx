@@ -12,7 +12,7 @@ export default function VendorRegisterModal({ isOpen, onClose, onRefresh }) {
 
   const handleRegisterVendor = (e) => {
     e.preventDefault();
-    if (!vendor.name || !vendor.category) return;
+    if (!vendor?.name || "" || !vendor.category) return;
     
     const avatarUrl = vendor.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80';
     const saved = saveVendor({ ...vendor, avatar: avatarUrl });
@@ -22,13 +22,13 @@ export default function VendorRegisterModal({ isOpen, onClose, onRefresh }) {
 
   const handleAddProduct = (e) => {
     e.preventDefault();
-    if (!product.name || !product.price) return;
+    if (!product?.name || "" || !product.price) return;
 
-    const imageUrl = product.image || 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=800&q=80';
+    const imageUrl = product?.image || "" || 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=800&q=80';
     saveProduct({
       ...product,
       vendorId: currentVendor.id,
-      brand: currentVendor.name,
+      brand: currentVendor?.name || "",
       image: imageUrl,
       tag: 'Fresh Drop'
     });
@@ -55,7 +55,7 @@ export default function VendorRegisterModal({ isOpen, onClose, onRefresh }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Store Name</label>
-                <input required type="text" placeholder="e.g. House of Elegance" value={vendor.name} onChange={e => setVendor({ ...vendor, name: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '14px' }} />
+                <input required type="text" placeholder="e.g. House of Elegance" value={vendor?.name || ""} onChange={e => setVendor({ ...vendor, name: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '14px' }} />
               </div>
 
               <div>
@@ -90,7 +90,7 @@ export default function VendorRegisterModal({ isOpen, onClose, onRefresh }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Product Title</label>
-                <input required type="text" placeholder="e.g. Velvet Embroidered Agbada" value={product.name} onChange={e => setProduct({ ...product, name: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '14px' }} />
+                <input required type="text" placeholder="e.g. Velvet Embroidered Agbada" value={product?.name || ""} onChange={e => setProduct({ ...product, name: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '14px' }} />
               </div>
 
               <div>
@@ -100,7 +100,7 @@ export default function VendorRegisterModal({ isOpen, onClose, onRefresh }) {
 
               <div>
                 <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Product Image URL (Optional)</label>
-                <input type="url" placeholder="https://..." value={product.image} onChange={e => setProduct({ ...product, image: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '14px' }} />
+                <input type="url" placeholder="https://..." value={product?.image || ""} onChange={e => setProduct({ ...product, image: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '14px' }} />
               </div>
 
               <button type="submit" style={{ marginTop: '12px', backgroundColor: '#10B981', color: '#fff', padding: '12px', borderRadius: '8px', border: 'none', fontWeight: '700', cursor: 'pointer', fontSize: '14px' }}>

@@ -28,7 +28,7 @@ export default function CartDrawer({ isOpen, onClose, cart, setCart, onCheckout 
     if (cart.length === 0) return;
 
     // Format order items for WhatsApp
-    const itemsList = cart.map(item => `• ${item.name} (x${item.quantity || 1}) - ₦${(item.price * (item.quantity || 1)).toLocaleString()}`).join('\n');
+    const itemsList = cart.map(item => `• ${item?.name || ""} (x${item.quantity || 1}) - ₦${(item.price * (item.quantity || 1)).toLocaleString()}`).join('\n');
     
     const message = `*NEW ORDER FROM FASTER SHOP*\n\n` +
       `*Customer Details:*\n` +
@@ -77,9 +77,9 @@ export default function CartDrawer({ isOpen, onClose, cart, setCart, onCheckout 
           ) : (
             cart.map((item, idx) => (
               <div key={idx} className="flex items-center gap-4 bg-zinc-800/50 p-3 rounded-xl border border-zinc-800">
-                <img src={item.image || item.img || "https://images.unsplash.com/photo-1523275335684-37898b6baf30"} alt={item.name} className="w-16 h-16 object-cover rounded-lg bg-zinc-800" />
+                <img src={item?.image || "" || item.img || "https://images.unsplash.com/photo-1523275335684-37898b6baf30"} alt={item?.name || ""} className="w-16 h-16 object-cover rounded-lg bg-zinc-800" />
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-sm truncate">{item.name}</h4>
+                  <h4 className="font-medium text-sm truncate">{item?.name || ""}</h4>
                   <p className="text-emerald-400 font-semibold text-sm mt-0.5">₦{item.price?.toLocaleString()}</p>
                   
                   <div className="flex items-center gap-3 mt-2">

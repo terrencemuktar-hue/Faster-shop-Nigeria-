@@ -124,10 +124,10 @@ export default function HomePage() {
                         <div>
                           <img 
                             src={item.imageUrl || 'https://via.placeholder.com/200'} 
-                            alt={item.name || 'Product'} 
+                            alt={item?.name || "" || 'Product'} 
                             style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '8px', marginBottom: '12px' }} 
                           />
-                          <h4 style={{ margin: '0 0 6px 0' }}>{item.name}</h4>
+                          <h4 style={{ margin: '0 0 6px 0' }}>{item?.name || ""}</h4>
                           <p style={{ margin: '0 0 12px 0', fontWeight: 'bold', color: '#0066cc' }}>₦{Number(item.price || 0).toLocaleString()}</p>
                         </div>
                         <button 
@@ -151,7 +151,7 @@ export default function HomePage() {
                     {cart.map((item, index) => (
                       <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
                         <div>
-                          <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{item.name}</div>
+                          <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{item?.name || ""}</div>
                           <div style={{ fontSize: '12px', color: '#666' }}>₦{Number(item.price || 0).toLocaleString()}</div>
                         </div>
                         <button 

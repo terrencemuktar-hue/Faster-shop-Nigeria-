@@ -15,7 +15,7 @@ export default function CheckoutModal({ isOpen, onClose, cartItems = [], totalAm
 
   const onSuccess = (reference) => {
     const itemDetails = cartItems
-      .map((item) => `- ${item.name} (${item.selectedSize || 'Standard'}) x${item.quantity || 1}`)
+      .map((item) => `- ${item?.name || ""} (${item.selectedSize || 'Standard'}) x${item.quantity || 1}`)
       .join('\n');
 
     const message = encodeURIComponent(

@@ -25,7 +25,7 @@ export default function WishlistPage({ wishlist, toggleWishlist, setSelectedProd
                 className="bg-white rounded-[18px] p-3 shadow-sm border border-neutral-100 cursor-pointer group relative"
               >
                 <div className="aspect-[4/5] rounded-[14px] overflow-hidden bg-neutral-100 mb-3 relative">
-                  <img src={product.image} alt={product.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                  <img src={product?.image || ""} alt={product.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
                   <button 
                     onClick={(e) => { e.stopPropagation(); toggleWishlist(product); }}
                     className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-md text-sm text-[#FF2D78]"

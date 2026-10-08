@@ -65,7 +65,7 @@ export default function HomePage({ onOpenCart, cartCount, onAddToCart }) {
                 <div className="w-12 h-12 mx-auto rounded-full bg-emerald-900/50 text-emerald-300 flex items-center justify-center font-bold text-lg border border-emerald-700/40">
                   {v.avatar}
                 </div>
-                <h3 className="font-semibold text-sm text-[#f4efe6]">{v.name}</h3>
+                <h3 className="font-semibold text-sm text-[#f4efe6]">{v?.name || ""}</h3>
                 <p className="text-[11px] text-[#9c9282] line-clamp-1">{v.category}</p>
               </div>
             ))}
@@ -79,13 +79,13 @@ export default function HomePage({ onOpenCart, cartCount, onAddToCart }) {
             {products.map((p) => (
               <div key={p.id} className="bg-[#141c17] border border-emerald-900/30 rounded-2xl overflow-hidden group hover:border-emerald-600/50 transition">
                 <div className="aspect-square bg-neutral-900 overflow-hidden relative">
-                  <img src={p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                  <img src={p?.image || ""} alt={p?.name || ""} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
                   <span className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md text-[11px] px-2.5 py-1 rounded-md text-emerald-300 border border-emerald-800/40">
                     {p.vendor}
                   </span>
                 </div>
                 <div className="p-4 space-y-3">
-                  <h3 className="font-semibold text-sm text-[#f4efe6]">{p.name}</h3>
+                  <h3 className="font-semibold text-sm text-[#f4efe6]">{p?.name || ""}</h3>
                   <div className="flex items-center justify-between pt-1">
                     <span className="text-base font-bold text-emerald-400">₦{p.price.toLocaleString()}</span>
                     <button

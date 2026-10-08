@@ -24,11 +24,11 @@ export default function VendorDashboard({ onBack, showToast }) {
 
   const handleAddProduct = (e) => {
     e.preventDefault();
-    if (!newProduct.name || !newProduct.price) return;
+    if (!newProduct?.name || "" || !newProduct.price) return;
 
     const prod = {
       id: Date.now(),
-      name: newProduct.name,
+      name: newProduct?.name || "",
       price: Number(newProduct.price),
       image: newProduct.imageUrl || 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=400',
       isVerifiedProduct: vendor?.is_verified || false
@@ -113,7 +113,7 @@ export default function VendorDashboard({ onBack, showToast }) {
         <input 
           type="text" 
           placeholder="Product Name" 
-          value={newProduct.name} 
+          value={newProduct?.name || ""} 
           onChange={e => setNewProduct({...newProduct, name: e.target.value})}
           className="w-full bg-zinc-50 border border-zinc-200 p-2.5 rounded-xl text-xs text-black focus:outline-none focus:border-black"
           required
@@ -149,9 +149,9 @@ export default function VendorDashboard({ onBack, showToast }) {
           products.map((p) => (
             <div key={p.id} className="bg-white border border-zinc-200 p-3 rounded-2xl flex items-center justify-between shadow-sm">
               <div className="flex items-center gap-3">
-                <img src={p.image} alt="" className="w-10 h-10 object-cover rounded-xl" />
+                <img src={p?.image || ""} alt="" className="w-10 h-10 object-cover rounded-xl" />
                 <div>
-                  <h4 className="text-xs font-bold text-black">{p.name}</h4>
+                  <h4 className="text-xs font-bold text-black">{p?.name || ""}</h4>
                   <span className="text-[11px] font-extrabold text-emerald-600">₦{p.price?.toLocaleString()}</span>
                 </div>
               </div>

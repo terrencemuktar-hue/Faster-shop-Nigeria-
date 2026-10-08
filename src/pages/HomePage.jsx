@@ -37,9 +37,9 @@ export default function HomePage({ onNavigate }) {
           {storyReels.map((reel, i) => (
             <div key={i} className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer" onClick={() => onNavigate("shop")}>
               <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-yellow-400 via-pink-500 to-emerald-400">
-                <img src={reel.img} alt={reel.name} className="w-full h-full object-cover rounded-full border-2 border-black" />
+                <img src={reel.img} alt={reel?.name || ""} className="w-full h-full object-cover rounded-full border-2 border-black" />
               </div>
-              <span className="text-[11px] text-zinc-300 font-medium truncate max-w-[64px]">{reel.name}</span>
+              <span className="text-[11px] text-zinc-300 font-medium truncate max-w-[64px]">{reel?.name || ""}</span>
             </div>
           ))}
         </div>

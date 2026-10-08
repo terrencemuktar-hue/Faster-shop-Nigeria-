@@ -36,8 +36,8 @@ export default function ProductDetailModal({ product, onClose, onAddToCart }) {
           {/* Image Banner */}
           <div className="bg-neutral-950 flex items-center justify-center min-h-[300px] p-6">
             <img
-              src={product.image || 'https://via.placeholder.com/400'}
-              alt={product.name}
+              src={product?.image || "" || 'https://via.placeholder.com/400'}
+              alt={product?.name || ""}
               className="max-h-[320px] w-auto object-contain rounded-lg"
             />
           </div>
@@ -48,7 +48,7 @@ export default function ProductDetailModal({ product, onClose, onAddToCart }) {
               <span className="text-xs font-semibold tracking-wider text-emerald-400 uppercase">
                 {product.vendor || 'Featured Brand'}
               </span>
-              <h2 className="text-2xl font-bold mt-1 text-white">{product.name}</h2>
+              <h2 className="text-2xl font-bold mt-1 text-white">{product?.name || ""}</h2>
               <p className="text-2xl font-bold text-white mt-3">
                 ₦{Number(product.price).toLocaleString()}
               </p>

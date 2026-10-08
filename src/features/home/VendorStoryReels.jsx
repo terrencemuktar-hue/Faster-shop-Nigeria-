@@ -43,14 +43,14 @@ export default function VendorStoryReels({ vendors = [] }) {
             <div className="w-16 h-16 rounded-full p-[2px] bg-gradient-to-tr from-emerald-500 via-teal-400 to-emerald-300 group-hover:scale-105 transition">
               <div className="w-full h-full rounded-full bg-neutral-900 border-2 border-black flex items-center justify-center font-bold text-lg text-emerald-400 overflow-hidden">
                 {vendor.logo ? (
-                  <img src={vendor.logo} alt={vendor.name} className="w-full h-full object-cover" />
+                  <img src={vendor.logo} alt={vendor?.name || ""} className="w-full h-full object-cover" />
                 ) : (
-                  vendor.name.charAt(0).toUpperCase()
+                  vendor?.name || "".charAt(0).toUpperCase()
                 )}
               </div>
             </div>
             <span className="text-xs text-neutral-300 font-medium truncate w-16 text-center">
-              {vendor.name}
+              {vendor?.name || ""}
             </span>
           </button>
         ))}
@@ -65,10 +65,10 @@ export default function VendorStoryReels({ vendors = [] }) {
             <div className="flex items-center justify-between z-10">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500 flex items-center justify-center font-bold text-emerald-400">
-                  {activeVendor.name.charAt(0)}
+                  {activeVendor?.name || "".charAt(0)}
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-white">{activeVendor.name}</h3>
+                  <h3 className="font-bold text-sm text-white">{activeVendor?.name || ""}</h3>
                   <p className="text-[11px] text-neutral-400">{activeVendor.category || 'Verified Vendor'}</p>
                 </div>
               </div>
@@ -83,9 +83,9 @@ export default function VendorStoryReels({ vendors = [] }) {
             {/* Story Content Card */}
             <div className="my-auto text-center space-y-4 px-4">
               <div className="w-24 h-24 bg-neutral-800 rounded-full mx-auto flex items-center justify-center text-3xl font-extrabold text-emerald-400 border-2 border-emerald-500/30">
-                {activeVendor.name.charAt(0)}
+                {activeVendor?.name || "".charAt(0)}
               </div>
-              <h4 className="text-xl font-extrabold text-white">{activeVendor.name}</h4>
+              <h4 className="text-xl font-extrabold text-white">{activeVendor?.name || ""}</h4>
               <p className="text-sm text-neutral-300 leading-relaxed">
                 {activeVendor.bio || activeVendor.description || 'Welcome to our store! Tap below to chat directly with us on WhatsApp for custom orders and inquiries.'}
               </p>
@@ -94,7 +94,7 @@ export default function VendorStoryReels({ vendors = [] }) {
             {/* Navigation & WhatsApp CTA */}
             <div className="space-y-4 z-10">
               <button
-                onClick={() => openWhatsApp(activeVendor.phone, activeVendor.name)}
+                onClick={() => openWhatsApp(activeVendor.phone, activeVendor?.name || "")}
                 className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl flex items-center justify-center space-x-2 transition shadow-lg shadow-emerald-500/20"
               >
                 <MessageCircle className="w-5 h-5 fill-black" />

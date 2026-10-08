@@ -7,10 +7,10 @@ export default function StoryReels({ vendors = [] }) {
   // Default mock stories if vendors don't have custom stories yet
   const stories = vendors.map((vendor, idx) => ({
     id: vendor.id || `story_${idx}`,
-    name: vendor.name,
-    avatar: vendor.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
+    name: vendor?.name || "",
+    avatar: vendor?.image || "" || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
     tagline: vendor.category || 'Featured Collection',
-    media: vendor.image || 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2',
+    media: vendor?.image || "" || 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2',
     timestamp: '2h ago'
   }));
 
@@ -28,11 +28,11 @@ export default function StoryReels({ vendors = [] }) {
             <div className="w-16 h-16 rounded-full p-[2px] bg-gradient-to-tr from-amber-500 via-emerald-500 to-pink-500 group-hover:scale-105 transition duration-300 shadow-lg shadow-emerald-950/40">
               <img 
                 src={story.avatar} 
-                alt={story.name} 
+                alt={story?.name || ""} 
                 className="w-full h-full object-cover rounded-full border-2 border-zinc-950 bg-zinc-900"
               />
             </div>
-            <span className="text-xs font-medium text-zinc-300 max-w-[64px] truncate">{story.name}</span>
+            <span className="text-xs font-medium text-zinc-300 max-w-[64px] truncate">{story?.name || ""}</span>
           </button>
         ))}
       </div>
@@ -54,7 +54,7 @@ export default function StoryReels({ vendors = [] }) {
                 <div className="flex items-center gap-3">
                   <img src={activeStory.avatar} alt="" className="w-9 h-9 rounded-full object-cover border border-emerald-500/50" />
                   <div>
-                    <h4 className="text-white font-semibold text-sm">{activeStory.name}</h4>
+                    <h4 className="text-white font-semibold text-sm">{activeStory?.name || ""}</h4>
                     <p className="text-zinc-400 text-xs">{activeStory.timestamp}</p>
                   </div>
                 </div>

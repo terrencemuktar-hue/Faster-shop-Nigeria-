@@ -70,11 +70,11 @@ export async function saveVendorProduct(product, { vendorId, vendorName }) {
   await setDoc(reference, {
     vendorId,
     vendor: vendorName,
-    name: product.name.trim(),
+    name: product?.name || "".trim(),
     category: product.category.trim(),
     price: Number(product.price),
     inventory: Number(product.inventory),
-    image: product.image.trim(),
+    image: product?.image || "".trim(),
     description: product.description.trim(),
     vendorTag: product.vendorTag || 'New arrival',
     tag: product.tag || 'New',

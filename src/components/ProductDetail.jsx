@@ -35,7 +35,7 @@ export default function ProductDetail({ product, onClose, onAddToCart, showToast
           const existing = JSON.parse(localStorage.getItem('faster_shop_orders') || '[]');
           const newOrder = {
             id: randomOrderId,
-            productName: product.name,
+            productName: product?.name || "",
             price: product.price,
             size: selectedSize,
             color: selectedColor,
@@ -46,7 +46,7 @@ export default function ProductDetail({ product, onClose, onAddToCart, showToast
         } catch (e) {}
 
         // Open WhatsApp with details
-        const waMsg = `*PAID ORDER #${randomOrderId}*\nProduct: ${product.name}\nSize: ${selectedSize}\nColor: ${selectedColor}\nPrice: ₦${product.price?.toLocaleString()}\nEmail: ${email}`;
+        const waMsg = `*PAID ORDER #${randomOrderId}*\nProduct: ${product?.name || ""}\nSize: ${selectedSize}\nColor: ${selectedColor}\nPrice: ₦${product.price?.toLocaleString()}\nEmail: ${email}`;
         window.open(`https://wa.me/2348000000000?text=${encodeURIComponent(waMsg)}`, '_blank');
         onClose();
       }
@@ -54,7 +54,7 @@ export default function ProductDetail({ product, onClose, onAddToCart, showToast
   };
 
   const handleWhatsAppOrder = () => {
-    const waMsg = `*NEW WHATSAPP ORDER*\nProduct: ${product.name}\nSize: ${selectedSize}\nColor: ${selectedColor}\nPrice: ₦${product.price?.toLocaleString()}\nPlease confirm availability!`;
+    const waMsg = `*NEW WHATSAPP ORDER*\nProduct: ${product?.name || ""}\nSize: ${selectedSize}\nColor: ${selectedColor}\nPrice: ₦${product.price?.toLocaleString()}\nPlease confirm availability!`;
     window.open(`https://wa.me/2348000000000?text=${encodeURIComponent(waMsg)}`, '_blank');
   };
 
@@ -73,7 +73,7 @@ export default function ProductDetail({ product, onClose, onAddToCart, showToast
         
         {/* Header Image */}
         <div className="relative h-64 bg-zinc-800">
-          <img src={product.image || product.img} alt={product.name} className="w-full h-full object-cover" />
+          <img src={product?.image || "" || product.img} alt={product?.name || ""} className="w-full h-full object-cover" />
           <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black transition">
             <X className="w-5 h-5" />
           </button>
@@ -86,7 +86,7 @@ export default function ProductDetail({ product, onClose, onAddToCart, showToast
         <div className="p-6 space-y-6 overflow-y-auto flex-1">
           <div className="flex justify-between items-start">
             <div>
-              <h2 className="text-xl font-bold">{product.name}</h2>
+              <h2 className="text-xl font-bold">{product?.name || ""}</h2>
               <div className="flex items-center gap-1.5 text-amber-400 text-sm mt-1">
                 <Star className="w-4 h-4 fill-current" />
                 <span className="font-semibold">4.8</span>
@@ -153,7 +153,7 @@ export default function ProductDetail({ product, onClose, onAddToCart, showToast
               {reviews.map((r) => (
                 <div key={r.id} className="bg-zinc-800/40 p-3 rounded-xl space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-zinc-300">{r.name}</span>
+                    <span className="font-semibold text-zinc-300">{r?.name || ""}</span>
                     <div className="flex text-amber-400">
                       {[...Array(r.rating)].map((_, i) => <Star key={i} className="w-3 h-3 fill-current" />)}
                     </div>

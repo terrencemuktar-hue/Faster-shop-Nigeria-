@@ -86,7 +86,7 @@ export default function VendorProfilePage({ vendorName, onBack, setSelectedProdu
               onClick={() => setSelectedProduct(product)}
               className="aspect-square bg-neutral-100 overflow-hidden relative cursor-pointer group"
             >
-              <img src={product.image} alt={product.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+              <img src={product?.image || ""} alt={product.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
               <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-end p-2 text-white text-[10px] font-bold">
                 ₦{product.price.toLocaleString()}
               </div>
