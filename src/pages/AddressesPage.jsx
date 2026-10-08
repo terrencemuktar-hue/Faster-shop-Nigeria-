@@ -1,118 +1,65 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, MapPin, Plus, Trash2 } from 'lucide-react';
-
-export default function AddressesPage({ onBack, showToast }) {
+import React, { useState } from "react";
+import { MapPin, Plus, Trash2 } from "lucide-react";
+export default function AddressesPage() {
   const [addresses, setAddresses] = useState([]);
-  const [form, setForm] = useState({ fullName: '', phone: '', address: '', city: 'Lagos', state: 'Lagos State' });
-
-  useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('savedAddresses') || '[]');
-    setAddresses(saved);
-  }, []);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ fullName: "", phone: "", street: "", city: "Lagos", state: "Lagos", landmark: "" });
 
   const handleSave = (e) => {
     e.preventDefault();
-    if (!form.fullName || !form.address) return;
-    const updated = [...addresses, form];
-    setAddresses(updated);
-    localStorage.setItem('savedAddresses', JSON.stringify(updated));
-    setForm({ fullName: '', phone: '', address: '', city: 'Lagos', state: 'Lagos State' });
-    if (showToast) showToast('Address Saved', 'success');
-  };
-
-  const handleDelete = (index) => {
-    const updated = addresses.filter((_, i) => i !== index);
-    setAddresses(updated);
-    localStorage.setItem('savedAddresses', JSON.stringify(updated));
-    if (showToast) showToast('Address Removed', 'info');
+    if (!form.fullName || !form.phone || !form.street) return;
+    setAddresses([...addresses, { ...form, id: Date.now() }]);
+    setForm({ fullName: "", phone: "", street: "", city: "Lagos", state: "Lagos", landmark: "" });
+    setShowForm(false);
   };
 
   return (
-    <div className="w-full max-w-[430px] min-h-screen bg-[#121212] text-white flex flex-col p-4 pb-24 space-y-4">
-      <div className="flex items-center gap-3">
-        <button 
-          onClick={onBack}
-          className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800 active:scale-[0.98] transition-all cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
+    <div className="min-h-screen bg-black text-white p-6 max-w-4xl mx-auto space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Shipping Addresses</h1>
+        <button onClick={() => setShowForm(!showForm)} className="bg-[#22c55e] text-black font-semibold px-4 py-2 rounded-xl flex items-center gap-2 text-sm">
+          <Plus size={16} /> Add New Address
         </button>
-        <h1 className="text-lg font-bold">Saved Shipping Addresses</h1>
       </div>
 
-      <form onSubmit={handleSave} className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl space-y-3">
-        <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Add New Address</h2>
-        <input 
-          type="text" 
-          placeholder="Full Name" 
-          value={form.fullName} 
-          onChange={e => setForm({...form, fullName: e.target.value})}
-          className="w-full bg-zinc-950 border border-zinc-800 p-2.5 rounded-xl text-xs text-white focus:outline-none focus:border-[#00D26A]"
-          required
-        />
-        <input 
-          type="text" 
-          placeholder="Phone Number" 
-          value={form.phone} 
-          onChange={e => setForm({...form, phone: e.target.value})}
-          className="w-full bg-zinc-950 border border-zinc-800 p-2.5 rounded-xl text-xs text-white focus:outline-none focus:border-[#00D26A]"
-        />
-        <input 
-          type="text" 
-          placeholder="Street Address" 
-          value={form.address} 
-          onChange={e => setForm({...form, address: e.target.value})}
-          className="w-full bg-zinc-950 border border-zinc-800 p-2.5 rounded-xl text-xs text-white focus:outline-none focus:border-[#00D26A]"
-          required
-        />
-        <div className="grid grid-cols-2 gap-2">
-          <select 
-            value={form.city} 
-            onChange={e => setForm({...form, city: e.target.value})}
-            className="bg-zinc-950 border border-zinc-800 p-2.5 rounded-xl text-xs text-white focus:outline-none focus:border-[#00D26A]"
-          >
-            <option value="Lagos">Lagos</option>
-            <option value="Abuja">Abuja</option>
-          </select>
-          <input 
-            type="text" 
-            placeholder="State" 
-            value={form.state} 
-            onChange={e => setForm({...form, state: e.target.value})}
-            className="bg-zinc-950 border border-zinc-800 p-2.5 rounded-xl text-xs text-white focus:outline-none focus:border-[#00D26A]"
-          />
-        </div>
-        <button 
-          type="submit" 
-          className="w-full bg-[#00D26A] text-black font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all cursor-pointer"
-        >
-          <Plus className="w-4 h-4" /> Save Address
-        </button>
-      </form>
+      {showForm && (
+        <form onSubmit={handleSave} className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl space-y-4">
+          <h3 className="font-semibold text-lg">Add Delivery Address</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input type="text" placeholder="Full Name" value={form.fullName} onChange={e => setForm({...form, fullName: e.target.value})} className="bg-black border border-zinc-800 rounded-xl p-3 text-sm text-white" required />
+            <input type="text" placeholder="Phone Number" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className="bg-black border border-zinc-800 rounded-xl p-3 text-sm text-white" required />
+            <input type="text" placeholder="Street Address" value={form.street} onChange={e => setForm({...form, street: e.target.value})} className="bg-black border border-zinc-800 rounded-xl p-3 text-sm text-white md:col-span-2" required />
+            <input type="text" placeholder="City" value={form.city} onChange={e => setForm({...form, city: e.target.value})} className="bg-black border border-zinc-800 rounded-xl p-3 text-sm text-white" />
+            <input type="text" placeholder="State (e.g. Lagos)" value={form.state} onChange={e => setForm({...form, state: e.target.value})} className="bg-black border border-zinc-800 rounded-xl p-3 text-sm text-white" />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-zinc-400">Cancel</button>
+            <button type="submit" className="bg-[#22c55e] text-black font-semibold px-6 py-2 rounded-xl text-sm">Save Address</button>
+          </div>
+        </form>
+      )}
 
-      <div className="space-y-2">
-        <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Saved Locations</h2>
-        {addresses.length === 0 ? (
-          <p className="text-xs text-zinc-500 text-center py-6">No saved addresses yet.</p>
-        ) : (
-          addresses.map((addr, idx) => (
-            <div key={idx} className="bg-zinc-900 border border-zinc-800 p-3.5 rounded-2xl flex justify-between items-center">
-              <div className="space-y-0.5">
-                <div className="text-xs font-bold flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-[#FF2D78]" /> {addr.fullName}
-                </div>
-                <div className="text-[11px] text-zinc-400">{addr.address}, {addr.city}</div>
-                <div className="text-[10px] text-zinc-500">{addr.phone}</div>
+      {addresses.length === 0 ? (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center space-y-3">
+          <MapPin className="mx-auto text-zinc-500" size={32} />
+          <p className="text-zinc-400 text-sm">No saved addresses yet.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {addresses.map(addr => (
+            <div key={addr.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl flex justify-between items-start">
+              <div className="space-y-1">
+                <p className="font-semibold text-white">{addr.fullName}</p>
+                <p className="text-xs text-zinc-400">{addr.phone}</p>
+                <p className="text-xs text-zinc-300">{addr.street}, {addr.city}, {addr.state}</p>
               </div>
-              <button 
-                onClick={() => handleDelete(idx)}
-                className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-pink-500 active:scale-[0.98] transition-all cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" />
+              <button onClick={() => setAddresses(addresses.filter(a => a.id !== addr.id))} className="text-red-400 hover:text-red-300">
+                <Trash2 size={16} />
               </button>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
