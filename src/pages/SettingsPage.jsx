@@ -1,29 +1,58 @@
 import React, { useState } from "react";
-export default function SettingsPage() {
-  const [name, setName] = useState("Terrence Nwezeh");
-  const [saved, setSaved] = useState(false);
+import Header from "../components/Header";
+import { supabase } from "../lib/supabase";
 
-  const handleSave = (e) => {
+export default function SettingsPage({ onNavigate }) {
+  const [displayName, setDisplayName] = useState("Nwezeh Terrence Uche");
+  const [message, setMessage] = useState("");
+
+  const handleUpdate = (e) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setMessage("Profile updated successfully!");
+    setTimeout(() => setMessage(""), 3000);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error(err);
+    }
+    alert("Logged out successfully.");
+    onNavigate("home");
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Account Settings</h1>
-      <form onSubmit={handleSave} className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl space-y-4">
-        <div>
-          <label className="text-xs text-zinc-400">Email Address</label>
-          <input type="email" disabled value="terrencemukhtar@gmail.com" className="w-full bg-black border border-zinc-800 rounded-xl p-3 text-sm text-zinc-500 mt-1 cursor-not-allowed" />
+    <div className="min-h-screen bg-[#f5f5f7] pb-[100px]">
+      <Header onNavigate={onNavigate} />
+      <div className="p-6 max-w-xl mx-auto space-y-4">
+        <h2 className="text-xl font-bold text-black">Account Settings</h2>
+
+        {message && <div className="bg-[#22c55e]/20 text-[#22c55e] border border-[#22c55e]/30 p-3 rounded-[12px] text-xs font-semibold">{message}</div>}
+
+        <form onSubmit={handleUpdate} className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 space-y-4">
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-500">Email Address (Read-only)</label>
+            <input type="email" value="terrence@fastersub.ng" readOnly className="w-full bg-gray-100 border border-gray-200 rounded-[12px] p-3 text-sm text-gray-600 outline-none cursor-not-allowed" />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-500">Display Name</label>
+            <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-[12px] p-3 text-sm text-black outline-none font-medium" />
+          </div>
+
+          <button type="submit" className="w-full bg-black text-white font-bold py-3 rounded-[16px] text-xs">
+            Save Changes
+          </button>
+        </form>
+
+        <div className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 space-y-3">
+          <h3 className="font-bold text-sm text-black">Session & Security</h3>
+          <button onClick={handleLogout} className="w-full bg-red-50 text-red-600 border border-red-200 font-bold py-3 rounded-[16px] text-xs hover:bg-red-100 transition">
+            Log Out of Faster Shop
+          </button>
         </div>
-        <div>
-          <label className="text-xs text-zinc-400">Display Name</label>
-          <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl p-3 text-sm text-white mt-1" />
-        </div>
-        {saved && <p className="text-xs text-[#22c55e]">Settings saved successfully!</p>}
-        <button type="submit" className="bg-[#22c55e] text-black font-semibold px-6 py-2.5 rounded-xl text-sm">Save Changes</button>
-      </form>
+      </div>
     </div>
   );
 }

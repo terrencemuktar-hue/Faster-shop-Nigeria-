@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Store } from "lucide-react";
+import Header from "../components/Header";
 import { supabase } from "../lib/supabase";
 
 const storyReels = [
@@ -19,7 +19,6 @@ const carouselImages = [
 
 export default function HomePage({ onNavigate }) {
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [products, setProducts] = useState([]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -28,44 +27,9 @@ export default function HomePage({ onNavigate }) {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    async function fetchProducts() {
-      try {
-        const { data, error } = await supabase.from("products").select("*").eq("status", "active");
-        if (!error && data) setProducts(data);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-    fetchProducts();
-  }, []);
-
   return (
     <div className="min-h-screen bg-[#f5f5f7] pb-[100px]">
-      {/* HEADER - BLACK */}
-      <header className="bg-black px-4 pt-3 pb-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => onNavigate("home")}>
-            <div className="w-9 h-9 bg-white rounded-[10px] flex items-center justify-center shadow-md">
-              <div className="w-5 h-5 bg-black rounded flex items-center justify-center text-white font-black text-xs">F</div>
-            </div>
-            <div>
-              <h1 className="text-white font-black text-[15px] tracking-widest leading-none">FASTER</h1>
-              <p className="text-gray-400 text-[9px] tracking-[3px]">SHOP NIGERIA</p>
-            </div>
-          </div>
-          <div className="flex gap-4 items-center text-white text-lg">
-            <button className="hover:opacity-80">💬</button>
-            <button className="text-yellow-400 hover:opacity-80">🔔</button>
-            <button className="hover:opacity-80">⚙️</button>
-            <button className="hover:opacity-80">👜</button>
-          </div>
-        </div>
-        <div className="mt-3.5 bg-white rounded-full flex items-center px-4 py-2.5 shadow-sm">
-          <span className="text-gray-400 mr-2">🔍</span>
-          <input placeholder="Search" className="bg-transparent outline-none w-full text-sm text-black placeholder-gray-400" />
-        </div>
-      </header>
+      <Header onNavigate={onNavigate} />
 
       {/* Vendor Story Reels */}
       <div className="bg-[#262626] py-3 px-4 border-b border-zinc-800">
@@ -81,7 +45,7 @@ export default function HomePage({ onNavigate }) {
         </div>
       </div>
 
-      {/* Featured Drops Header & Carousel / Grid */}
+      {/* Featured Drops Carousel */}
       <div className="p-4 space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="font-bold text-black text-base">Featured Drops</h2>
@@ -102,7 +66,7 @@ export default function HomePage({ onNavigate }) {
             </span>
             <h3 className="text-white text-xl font-bold">Nigeria's Fastest Fashion Market</h3>
             <div className="flex gap-2 pt-1">
-              <button onClick={() => onNavigate("vendor")} className="bg-[#22c55e] text-black font-bold px-4 py-2.5 rounded-[16px] text-xs">
+              <button onClick={() => onNavigate("vendor")} className="bg-[#22c55e] text-black font-bold px-4 py-2.5 rounded-[16px] text-xs cursor-pointer">
                 Become a Vendor
               </button>
             </div>
