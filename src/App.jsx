@@ -32,7 +32,7 @@ export default function App() {
   const [prodFile, setProdFile] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  // Exact Category Colors and Emojis from Screenshots
+  // Exact Category Colors and Emojis
   const categories = [
     { name: 'Hair', emoji: '👩‍🦱', bg: 'bg-[#FDF0F6]' },
     { name: 'Hoodies', emoji: '🧥', bg: 'bg-[#FEF9C3]' },
@@ -48,8 +48,11 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) fetchProfile(session.user.id);
-      else setLoading(false);
+      if (session) {
+        fetchProfile(session.user.id);
+      } else {
+        setLoading(false);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -75,9 +78,11 @@ export default function App() {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
-      if (data) setProfile(data);
+      if (data) {
+        setProfile(data);
+      }
     } catch (err) {
       console.error('Profile fetch error:', err);
     } finally {
@@ -86,13 +91,21 @@ export default function App() {
   };
 
   const fetchProducts = async () => {
-    const { data } = await supabase.from('products').select('*').order('created_at', { ascending: false });
-    if (data) setProducts(data);
+    try {
+      const { data } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+      if (data) setProducts(data);
+    } catch (err) {
+      console.error('Products fetch error:', err);
+    }
   };
 
   const fetchVendors = async () => {
-    const { data } = await supabase.from('profiles').select('*').eq('role', 'vendor');
-    if (data) setVendors(data);
+    try {
+      const { data } = await supabase.from('profiles').select('*').eq('role', 'vendor');
+      if (data) setVendors(data);
+    } catch (err) {
+      console.error('Vendors fetch error:', err);
+    }
   };
 
   // Auth Handlers
@@ -347,15 +360,15 @@ export default function App() {
   }
 
   // MAIN MARKETPLACE APP UI
-  const filteredProducts = products.filter(p => {
+  const filteredProducts = products.filter((p) => {
     const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
-    const matchesSearch = p.title.toLowerCase().includes(globalSearch.toLowerCase());
+    const matchesSearch = p.title ? p.title.toLowerCase().includes(globalSearch.toLowerCase()) : true;
     return matchesCategory && matchesSearch;
   });
 
   const getInitials = (name) => {
     if (!name) return 'TN';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+    return name.split(' ').map((n) => n[0]).join('').toUpperCase().substring(0, 2);
   };
 
   return (
@@ -374,16 +387,12 @@ export default function App() {
           </div>
 
           <div className="flex items-center space-x-4">
-            {/* Chat Bubble with Pink Dot */}
             <button onClick={() => setActiveTab('messages')} className="relative text-xl">
               💬
               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-pink-500 rounded-full"></span>
             </button>
-            {/* Bell Icon */}
             <button onClick={() => setActiveTab('notifications')} className="text-xl">🔔</button>
-            {/* Gear Icon */}
             <button onClick={() => setActiveTab('profile')} className="text-xl">⚙️</button>
-            {/* Shopping Bag Icon */}
             <button onClick={() => setActiveTab('wishlist')} className="text-xl">👜</button>
           </div>
         </div>
@@ -407,18 +416,15 @@ export default function App() {
         {/* --- HOME TAB --- */}
         {activeTab === 'home' && (
           <div className="space-y-6">
-            {/* Stories Bar */}
             <div className="bg-[#1A1A1A] text-gray-300 text-xs py-2.5 px-4 rounded-xl text-center font-medium">
               No stories yet - Vendors post from their profile
             </div>
 
-            {/* Featured Drops Header */}
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-black">Featured Drops</h2>
               <button onClick={() => setActiveTab('search')} className="text-[#00C950] font-bold text-sm">See All</button>
             </div>
 
-            {/* Featured Drops Content Grid / Empty Card */}
             {filteredProducts.length > 0 ? (
               <div className="grid grid-cols-2 gap-3">
                 {filteredProducts.map((p) => (
@@ -445,7 +451,6 @@ export default function App() {
               </div>
             )}
 
-            {/* New Brands Section */}
             <div className="space-y-3">
               <h2 className="text-xl font-black">New Brands</h2>
               <div className="flex space-x-3 overflow-x-auto pb-2 scrollbar-none">
@@ -475,7 +480,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Green Call-to-Action Banner */}
             <div className="bg-[#00C950] rounded-3xl p-6 text-center space-y-4">
               <h3 className="text-xl font-black text-black">0 Followers OK - Start Selling Today</h3>
               <p className="text-black/80 font-semibold text-xs max-w-xs mx-auto">
@@ -499,7 +503,6 @@ export default function App() {
           <div className="space-y-5">
             <h2 className="text-2xl font-black">Explore Categories</h2>
 
-            {/* Category Search Input */}
             <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
               <input
                 type="text"
@@ -510,10 +513,9 @@ export default function App() {
               />
             </div>
 
-            {/* 8 Pastel Category Cards in 2 Columns */}
             <div className="grid grid-cols-2 gap-3">
               {categories
-                .filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
+                .filter((c) => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
                 .map((cat) => (
                   <div
                     key={cat.name}
@@ -577,7 +579,6 @@ export default function App() {
         {/* --- PROFILE TAB --- */}
         {activeTab === 'profile' && (
           <div className="space-y-6">
-            {/* User Profile Info Card */}
             <div className="bg-white p-6 rounded-3xl flex items-center space-x-4 shadow-sm border border-gray-100">
               <div className="w-14 h-14 bg-black text-white font-black rounded-full flex items-center justify-center text-lg shrink-0">
                 {getInitials(profile?.full_name)}
@@ -588,7 +589,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Account & Deliveries List */}
             <div className="space-y-3">
               <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider px-1">ACCOUNT & DELIVERIES</h4>
               
@@ -715,7 +715,7 @@ export default function App() {
                     onChange={(e) => setProdCategory(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
                   >
-                    {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                    {categories.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
                   </select>
                 </div>
                 <div>
@@ -741,7 +741,7 @@ export default function App() {
 
       </main>
 
-      {/* 3. BOTTOM NAVIGATION (EXACT 5 TABS MATCHING SCREENSHOTS) */}
+      {/* 3. BOTTOM NAVIGATION (5 TABS) */}
       <nav className="fixed bottom-0 left-0 right-0 bg-black text-white py-2 px-4 flex justify-around items-center border-t border-zinc-900 z-50">
         <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center text-[10px] font-bold ${activeTab === 'home' ? 'text-[#00C950]' : 'text-gray-400'}`}>
           <span className="text-lg">🏠</span>
