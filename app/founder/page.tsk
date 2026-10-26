@@ -1,0 +1,69 @@
+// app/founder/page.tsx - Official Founder Page for Google Knowledge Panel
+import Link from 'next/link';
+
+export const metadata = {
+  title: "Terrence Nwezeh aka Amar Willam - Musician, Indie Developer, CEO Faster Shop NG",
+  description: "Terrence Nwezeh, professionally known as Amar Willam, is a Nigerian musician, indie developer and CEO of Faster Shop NG.",
+};
+
+export default function FounderPage() {
+  return (
+    <div className="min-h-screen bg-black text-white">
+      {/* Google Schema - DO NOT REMOVE */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Person",
+            "name": "Terrence Nwezeh",
+            "alternateName": "Amar Willam",
+            "jobTitle": ["Musician", "Indie Developer", "CEO"],
+            "description": "Nigerian musician, indie developer and Founder & CEO of Faster Shop NG",
+            "url": "https://fastershopng.com/founder",
+            "image": "https://fastershopng.com/og-image.jpg",
+            "worksFor": {
+              "@type": "Organization",
+              "name": "Faster Shop NG",
+              "url": "https://fastershopng.com"
+            },
+            "sameAs": [
+              "https://www.instagram.com/amarwillam_",
+              "https://open.spotify.com/artist/5hcslgbizktbzudpKYCAzD?si=f54AJXzvQOCrWNe06Fvxbg",
+              "https://github.com/terrencemuktar-hue",
+              "https://www.linkedin.com/in/terrence-williams-0861b025b"
+            ]
+          })
+        }}
+      />
+
+      <div className="max-w-4xl mx-auto px-6 py-20">
+        <h1 className="text-5xl font-bold">Terrence Nwezeh</h1>
+        <p className="text-xl text-green-400 mt-2">Also known as Amar Willam</p>
+        
+        <div className="mt-8 space-y-6 text-gray-300 leading-relaxed">
+          <p>
+            <strong className="text-white">Terrence Nwezeh</strong>, professionally known as <strong className="text-white">Amar Willam</strong>, 
+            is a Nigerian musician, indie developer and entrepreneur. He is the Founder and CEO of <strong className="text-white">Faster Shop NG</strong>, 
+            a Nigerian e-commerce platform designed for fast and reliable shopping.
+          </p>
+          <p>
+            As an indie developer, Terrence builds web applications and digital products focused on solving real problems for African businesses. 
+            As Amar Willam, he creates and releases music as an independent artist.
+          </p>
+        </div>
+
+        <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <a href="https://www.instagram.com/amarwillam_/" target="_blank" className="bg-white text-black p-4 rounded-lg font-bold text-center">Instagram: @amarwillam_</a>
+          <a href="https://open.spotify.com/artist/5hcslgbizktbzudpKYCAzD?si=f54AJXzvQOCrWNe06Fvxbg" target="_blank" className="bg-green-500 text-black p-4 rounded-lg font-bold text-center">Listen on Spotify</a>
+          <a href="https://github.com/terrencemuktar-hue" target="_blank" className="bg-gray-800 p-4 rounded-lg font-bold text-center">GitHub: terrencemuktar-hue</a>
+          <a href="https://www.linkedin.com/in/terrence-williams-0861b025b" target="_blank" className="bg-blue-600 p-4 rounded-lg font-bold text-center">LinkedIn</a>
+        </div>
+
+        <div className="mt-12">
+          <Link href="/" className="text-gray-400 underline">← Back to Faster Shop NG</Link>
+        </div>
+      </div>
+    </div>
+  );
+}
