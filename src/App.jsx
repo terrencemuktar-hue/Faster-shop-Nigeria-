@@ -36,14 +36,14 @@ export default function App() {
     setFasterShop(fs||null)
     const { data: v } = await supabase.from('profiles').select('*').eq('is_vendor', true).eq('is_faster_shop', false).order('created_at',{ascending:false})
     setVendors(v||[])
-    const { data: prods } = await supabase.from('products').select('*, profiles!products_vendor_id_fkey(vendor_name, is_faster_shop, avatar_url, bio, location, website)').order('created_at',{ascending:false})
+    const { data: prods } = await supabase.from('products').select('*, profiles!products_vendor_id_fkey(vendor_name, is_faster_shop, avatar_url, website)').order('created_at',{ascending:false})
     setProducts(prods||[])
     const { data: s } = await supabase.from('stories').select('*, profiles!stories_vendor_id_fkey(vendor_name, avatar_url)').gt('expires_at', new Date().toISOString()).order('created_at',{ascending:false})
     setStories(s||[])
   }
 
   const addToCart = (product) => {
-    if(!product.profiles?.is_faster_shop){ alert('Chat only vendor'); return }
+    if(!product.profiles?.is_faster_shop){ alert('Chat only vendor — Message'); return }
     setCart(prev=> [...prev, product])
   }
 
@@ -63,8 +63,6 @@ export default function App() {
     )
   }
 
-  const filteredProducts = selectedCategory==='All' ? products : products.filter(p=>p.category===selectedCategory)
-
   return (
     <div className="min-h-screen bg-black text-white pb-20">
       <div className="sticky top-0 z-50 bg-black border-b border-zinc-900 px-4 py-3 flex items-center gap-3">
@@ -82,7 +80,7 @@ export default function App() {
         </div>
       )}
 
-      {tab==='home' && <Home user={user} fasterShop={fasterShop} vendors={vendors} products={filteredProducts} stories={stories} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} onOpenVendor={(v)=>{setSelectedVendor(v); setTab('vendor')}} onDM={(v,p)=>{setSelectedChat(v); setSelectedProduct(p); setTab('chat')}} onAddCart={addToCart} onStoryClick={setActiveStory} />}
+      {tab==='home' && <Home user={user} fasterShop={fasterShop} vendors={vendors} products={products} stories={stories} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} onOpenVendor={(v)=>{setSelectedVendor(v); setTab('vendor')}} onDM={(v,p)=>{setSelectedChat(v); setSelectedProduct(p); setTab('chat')}} onAddCart={addToCart} onStoryClick={setActiveStory} />}
       {tab==='shop' && <Shop user={user} fasterShop={fasterShop} products={products} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} onOpenVendor={(v)=>{setSelectedVendor(v); setTab('vendor')}} onDM={(v,p)=>{setSelectedChat(v); setSelectedProduct(p); setTab('chat')}} onAddCart={addToCart} />}
       {tab==='vendor' && <VendorProfile vendor={selectedVendor} currentUser={user} products={products.filter(p=>p.vendor_id===selectedVendor?.id)} stories={stories.filter(s=>s.vendor_id===selectedVendor?.id)} onBack={()=>setTab('home')} onDM={(v,p)=>{setSelectedChat(v); setSelectedProduct(p); setTab('chat')}} onAddCart={addToCart} reload={loadAll} onStoryClick={setActiveStory} />}
       {tab==='messages' && <MessagesList user={user} onSelect={(v)=>{setSelectedChat(v); setTab('chat')}} />}
@@ -112,7 +110,7 @@ function ProductCard({ user, product, onOpenVendor, onDM, onAddCart }){
     const load = async () => {
       const { count } = await supabase.from('product_likes').select('*', {count:'exact', head:true}).eq('product_id', product.id)
       const { data: myLike } = await supabase.from('product_likes').select('*').eq('product_id', product.id).eq('user_id', user.id).maybeSingle()
-      const { data: comms } = await supabase.from('product_comments').select('*, profiles(vendor_name)').eq('product_id', product.id).order('created_at',{ascending:true}).limit(10)
+      const { data: comms } = await supabase.from('product_comments').select('*, profiles(vendor_name)').eq('product_id', product.id).order('created_at',{ascending:true}).limit(20)
       setLikes(count||0); setLiked(!!myLike); setComments(comms||[])
     }
     load()
@@ -126,8 +124,8 @@ function ProductCard({ user, product, onOpenVendor, onDM, onAddCart }){
   const sendComment = async () => {
     if(!commentText.trim()) return
     await supabase.from('product_comments').insert({ product_id: product.id, user_id: user.id, text: commentText })
-    setCommentText(''); setShowComments(true)
-    const { data: comms } = await supabase.from('product_comments').select('*, profiles(vendor_name)').eq('product_id', product.id).order('created_at',{ascending:true}).limit(10)
+    setCommentText('')
+    const { data: comms } = await supabase.from('product_comments').select('*, profiles(vendor_name)').eq('product_id', product.id).order('created_at',{ascending:true}).limit(20)
     setComments(comms||[])
   }
 
@@ -141,17 +139,17 @@ function ProductCard({ user, product, onOpenVendor, onDM, onAddCart }){
       </div>
       <img src={product.images?.[0]} className="w-full h-72 object-cover" alt="" />
       <div className="p-3">
-        <div className="flex gap-4 text-[16px]">
-          <button onClick={toggleLike} className={`${liked ? 'text-red-500' : 'text-white'}`}>{liked ? '❤️' : '🤍'} <span className="text-[10px]">{likes}</span></button>
-          <button onClick={()=>setShowComments(!showComments)} className="text-white">💬 <span className="text-[10px]">{comments.length}</span></button>
-          <button onClick={()=>onDM({id:product.vendor_id, vendor_name:product.profiles?.vendor_name}, product)} className="ml-auto bg-white text-black text-[9px] font-bold px-3 py-1.5 rounded-full">Message Vendor → DM</button>
+        <div className="flex gap-4 items-center text-[16px]">
+          <button onClick={toggleLike} className={`${liked ? 'text-red-500' : 'text-white'} flex items-center gap-1`}>{liked ? '❤️' : '🤍'} <span className="text-[10px]">{likes}</span></button>
+          <button onClick={()=>setShowComments(!showComments)} className="flex items-center gap-1">💬 <span className="text-[10px]">{comments.length}</span></button>
+          <button onClick={()=>onDM({id:product.vendor_id, vendor_name:product.profiles?.vendor_name}, product)} className="ml-auto bg-white text-black text-[9px] font-bold px-4 py-1.5 rounded-full">Message → DM</button>
         </div>
         <p className="text-[11px] font-bold mt-2">{product.title || product.name} - {product.price}</p>
-        <p className="text-[9px] text-zinc-500 mt-1">{product.category}</p>
+        <p className="text-[9px] text-zinc-500 mt-1">{product.category} • Latest post from vendor</p>
         {showComments && (
           <div className="mt-3 space-y-2">
             {comments.map(c=><div key={c.id} className="text-[10px]"><span className="font-bold">{c.profiles?.vendor_name}: </span>{c.text}</div>)}
-            <div className="flex gap-2"><input value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Add comment..." className="flex-1 bg-black border border-zinc-800 rounded-full px-3 py-1.5 text-[10px]" /><button onClick={sendComment} className="text-[10px] font-bold">Post</button></div>
+            <div className="flex gap-2"><input value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Add comment..." className="flex-1 bg-black border border-zinc-800 rounded-full px-3 py-1.5 text-[10px]" onKeyDown={e=>e.key==='Enter' && sendComment()} /><button onClick={sendComment} className="text-[10px] font-bold">Post</button></div>
           </div>
         )}
       </div>
@@ -159,8 +157,31 @@ function ProductCard({ user, product, onOpenVendor, onDM, onAddCart }){
   )
 }
 
+function FeaturedDrop({ products, onOpenVendor }){
+  const [idx, setIdx] = useState(0)
+  const featured = products.filter(p=>p.is_featured).slice(0,10)
+  const display = featured.length>0 ? featured : products.slice(0,5)
+  useEffect(()=>{ if(display.length===0) return; const t=setInterval(()=>setIdx(i=>(i+1)%display.length), 3000); return ()=>clearInterval(t) },[display.length])
+  if(display.length===0) return (
+    <div className="rounded-[20px] overflow-hidden h-56 bg-zinc-900 border border-[#39FF14]/30 flex items-center justify-center">
+      <p className="text-[11px] text-zinc-500">Featured Drop — your uploads will slide here for ads</p>
+    </div>
+  )
+  const curr = display[idx]
+  return (
+    <div className="rounded-[20px] overflow-hidden h-56 relative bg-zinc-900 border border-[#39FF14]/30">
+      <img src={curr.images?.[0]} className="w-full h-full object-cover" alt="" />
+      <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-transparent"></div>
+      <div className="absolute top-4 left-4 flex gap-2"><span className="bg-[#39FF14] text-black text-[8px] px-2.5 py-1 rounded-full font-black">FEATURED DROP — ADS</span><span className="bg-white/20 backdrop-blur text-white text-[8px] px-2 py-1 rounded-full">{idx+1}/{display.length}</span></div>
+      <div className="absolute bottom-4 left-4 right-4"><h2 className="font-black text-[18px] leading-tight">{curr.title || curr.name}</h2><p className="text-[11px] text-zinc-300 mt-1">{curr.price} • {curr.category} — Sponsored</p><button onClick={()=>onOpenVendor({id: curr.vendor_id, ...curr.profiles})} className="mt-3 bg-[#39FF14] text-black text-[11px] font-black px-5 py-2.5 rounded-full">Shop Now →</button></div>
+      <div className="absolute bottom-4 right-4 flex gap-1">{display.map((_,i)=><div key={i} className={`w-1.5 h-1.5 rounded-full ${i===idx ? 'bg-[#39FF14]' : 'bg-white/30'}`}></div>)}</div>
+    </div>
+  )
+}
+
 function Home({ user, fasterShop, vendors, products, stories, selectedCategory, setSelectedCategory, onOpenVendor, onDM, onAddCart, onStoryClick }){
   const storyMap = {}; stories.forEach(s=>{ storyMap[s.vendor_id]=s })
+  const filtered = selectedCategory==='All' ? products : products.filter(p=>p.category===selectedCategory)
   return (
     <div className="p-4 space-y-5">
       <div className="flex gap-4 overflow-x-auto pb-1">
@@ -178,14 +199,20 @@ function Home({ user, fasterShop, vendors, products, stories, selectedCategory, 
         ))}
       </div>
 
+      <FeaturedDrop products={products} onOpenVendor={onOpenVendor} />
+
       <div className="flex gap-2 overflow-x-auto pb-2">
         {CATEGORIES.map(cat=>(
           <button key={cat.name} onClick={()=>setSelectedCategory(cat.name)} className={`px-4 py-2 rounded-full text-[11px] font-bold border ${selectedCategory===cat.name ? 'bg-[#39FF14] text-black border-[#39FF14]' : 'bg-zinc-900 border-zinc-800 text-zinc-400'}`}>{cat.icon} {cat.name}</button>
         ))}
       </div>
 
-      <div className="space-y-4">
-        {products.map(prod=> <ProductCard key={prod.id} user={user} product={prod} onOpenVendor={onOpenVendor} onDM={onDM} onAddCart={onAddCart} />)}
+      <div>
+        <h3 className="font-black text-[12px] mb-2">Home Algorithm — All vendors latest posts</h3>
+        <p className="text-[10px] text-zinc-500 mb-3">Shows every vendor's latest drop — {filtered.length} posts in {selectedCategory}</p>
+        <div className="space-y-4">
+          {filtered.length===0 ? <p className="text-[11px] text-zinc-600 text-center py-10">No posts yet in {selectedCategory}. Upload in Profile → auto shows here + Shop Categories</p> : filtered.map(prod=> <ProductCard key={prod.id} user={user} product={prod} onOpenVendor={onOpenVendor} onDM={onDM} onAddCart={onAddCart} />)}
+        </div>
       </div>
     </div>
   )
@@ -195,16 +222,19 @@ function Shop({ user, fasterShop, products, selectedCategory, setSelectedCategor
   const filtered = selectedCategory==='All' ? products : products.filter(p=>p.category===selectedCategory)
   return (
     <div className="p-4">
+      {fasterShop && <button onClick={()=>onOpenVendor(fasterShop)} className="w-full bg-[#39FF14] rounded-2xl p-4 flex items-center gap-3 text-left mb-4"><img src={fasterShop.avatar_url} className="w-12 h-12 rounded-full" alt="" /><div><p className="text-[13px] font-black text-black">{fasterShop.vendor_name} — Official</p><p className="text-[10px] text-black/70">Only you can edit</p></div></button>}
+      <h2 className="font-black text-[14px]">Shop by Category — Auto from uploads</h2>
+      <p className="text-[10px] text-zinc-500 mb-3">Tap category → see all vendors posts in that category</p>
       <div className="flex gap-2 overflow-x-auto pb-3">
         {CATEGORIES.map(cat=>(
-          <button key={cat.name} onClick={()=>setSelectedCategory(cat.name)} className={`px-4 py-2 rounded-full text-[11px] font-bold border ${selectedCategory===cat.name ? 'bg-white text-black border-white' : 'bg-zinc-900 border-zinc-800 text-zinc-400'}`}>{cat.icon} {cat.name}</button>
+          <button key={cat.name} onClick={()=>setSelectedCategory(cat.name)} className={`px-4 py-2 rounded-full text-[11px] font-bold border ${selectedCategory===cat.name ? 'bg-white text-black border-white' : 'bg-zinc-900 border-zinc-800 text-zinc-400'}`}><span>{cat.icon}</span> {cat.name}</button>
         ))}
       </div>
       <div className="grid grid-cols-2 gap-3">
-        {filtered.map(p=>(
+        {filtered.length===0 ? <p className="col-span-2 text-[11px] text-zinc-500 text-center py-10">No posts in {selectedCategory} yet</p> : filtered.map(p=>(
           <div key={p.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
             <img src={p.images?.[0]} className="w-full h-32 object-cover" alt="" />
-            <div className="p-2"><p className="text-[10px] font-bold truncate">{p.title || p.name}</p><p className="text-[9px] text-zinc-400">{p.price} • {p.category}</p><button onClick={()=>onDM({id:p.vendor_id, vendor_name:p.profiles?.vendor_name}, p)} className="w-full mt-2 bg-white text-black text-[8px] font-bold py-1 rounded-full">Message → DM</button></div>
+            <div className="p-2"><p className="text-[10px] font-bold truncate">{p.title || p.name}</p><p className="text-[9px] text-zinc-400">{p.price} • {p.category} • {p.profiles?.vendor_name}</p><button onClick={()=>onDM({id:p.vendor_id, vendor_name:p.profiles?.vendor_name}, p)} className="w-full mt-2 bg-white text-black text-[8px] font-bold py-1 rounded-full">Message → DM</button></div>
           </div>
         ))}
       </div>
@@ -263,23 +293,24 @@ function VendorProfile({ vendor, currentUser, products, stories, onBack, onDM, o
     const { error } = await supabase.storage.from('product-images').upload(fname, storyFile, { upsert:true })
     if(error) return alert(error.message)
     const { data } = supabase.storage.from('product-images').getPublicUrl(fname)
-    await supabase.from('stories').insert({ vendor_id: vendor.id, image_url: data.publicUrl })
-    alert('Story posted — 24h with + sign'); setStoryFile(null); reload()
+    // FIX: set expires_at 24h from now
+    const expires = new Date(Date.now() + 24*60*60*1000).toISOString()
+    await supabase.from('stories').insert({ vendor_id: vendor.id, image_url: data.publicUrl, expires_at: expires })
+    alert('Story posted — 24h ring now works!'); setStoryFile(null); reload()
   }
 
   if(!vendor) return null
   const isOwn = currentUser.id === vendor.id
-  const isFaster = vendor.is_faster_shop
   const hasStory = stories.length>0
 
   return (
     <div>
-      <div className="p-4 flex items-center gap-3 border-b border-zinc-900"><button onClick={onBack}>Back</button><p className="font-black">{vendor.vendor_name} {isFaster && <span className="bg-[#39FF14] text-black text-[8px] px-2 py-1 rounded-full ml-2">{isOwn ? 'OFFICIAL — YOU ONLY' : 'OFFICIAL'}</span>}</p></div>
+      <div className="p-4 flex items-center gap-3 border-b border-zinc-900"><button onClick={onBack}>Back</button><p className="font-black">{vendor.vendor_name}</p></div>
       <div className="p-4">
         <div className="flex gap-6 items-center">
           <div className="relative">
             <button onClick={()=> hasStory && onStoryClick(stories[0])} className={`w-20 h-20 rounded-full p-[2px] ${hasStory ? 'bg-gradient-to-tr from-[#39FF14] to-yellow-400' : 'bg-zinc-700'}`}><img src={vendor.avatar_url || `https://i.pravatar.cc/150?u=${vendor.id}`} className="w-full h-full rounded-full border-2 border-black object-cover" alt="" /></button>
-            {isOwn && <label className="absolute -bottom-1 -right-1 bg-[#39FF14] text-black w-6 h-6 rounded-full flex items-center justify-center text-[14px] font-black cursor-pointer border-2 border-black">+<input type="file" accept="image/*" className="hidden" onChange={e=>{ setStoryFile(e.target.files?.[0]||null); setTimeout(()=>{ if(e.target.files?.[0]) uploadStory() }, 500) }} /></label>}
+            {isOwn && <label className="absolute -bottom-1 -right-1 bg-[#39FF14] text-black w-6 h-6 rounded-full flex items-center justify-center text-[14px] font-black cursor-pointer border-2 border-black">+<input type="file" accept="image/*" className="hidden" onChange={e=>{ setStoryFile(e.target.files?.[0]||null) }} /></label>}
           </div>
           <div className="flex flex-1 justify-around text-center"><div><p className="font-black">{products.length}</p><p className="text-[10px] text-zinc-500">Posts</p></div><div><p className="font-black">{followers}</p><p className="text-[10px] text-zinc-500">Followers</p></div><div><p className="font-black">0</p><p className="text-[10px] text-zinc-500">Following</p></div></div>
         </div>
@@ -288,22 +319,17 @@ function VendorProfile({ vendor, currentUser, products, stories, onBack, onDM, o
           {isOwn ? <button onClick={()=>setEditMode(!editMode)} className="flex-1 bg-white text-black py-2 rounded-lg text-[11px] font-black">{editMode ? 'Cancel' : 'Edit Profile — username, bio, link, picture'}</button> :
           <><button onClick={toggleFollow} className={`flex-1 py-2 rounded-lg text-[11px] font-bold ${isFollowing ? 'bg-zinc-900 border border-zinc-800' : 'bg-white text-black'}`}>{isFollowing ? 'Following' : 'Follow'}</button><button onClick={()=>onDM(vendor,null)} className="flex-1 bg-zinc-900 border border-zinc-800 py-2 rounded-lg text-[11px] font-bold">Message → DM</button></>}
         </div>
-        {isOwn && (
-          <div className="mt-3">
-            <input type="file" accept="image/*" onChange={e=>setStoryFile(e.target.files?.[0]||null)} className="w-full text-[10px] bg-zinc-900 p-2 rounded-xl" />
-            {storyFile && <><img src={URL.createObjectURL(storyFile)} className="w-full h-40 object-cover rounded-2xl mt-2" alt="" /><button onClick={uploadStory} className="w-full mt-2 bg-[#39FF14] text-black font-bold py-2 rounded-full text-[11px]">Post Story — 24h (tap + on avatar too)</button></>}
-          </div>
-        )}
+        {isOwn && storyFile && <div className="mt-3"><img src={URL.createObjectURL(storyFile)} className="w-full h-40 object-cover rounded-2xl" alt="" /><button onClick={uploadStory} className="w-full mt-2 bg-[#39FF14] text-black font-bold py-2 rounded-full text-[11px]">Post Story — 24h (fixes old success bug)</button></div>}
         {editMode && isOwn && (
           <div className="mt-4 space-y-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-            <p className="text-[10px] font-black">Edit Profile — IG style: username, bio, link, picture</p>
+            <p className="text-[10px] font-black">Edit IG Profile — username, bio, link, picture</p>
             <input type="file" accept="image/*" onChange={e=>setAvatarFile(e.target.files?.[0]||null)} className="w-full text-[11px] bg-black p-2 rounded-xl" />
             {avatarFile && <img src={URL.createObjectURL(avatarFile)} className="w-20 h-20 rounded-full object-cover" alt="" />}
             <input value={name} onChange={e=>setName(e.target.value)} placeholder="Username" className="w-full bg-black border border-zinc-800 rounded-full px-4 py-2 text-[11px]" />
             <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="Location" className="w-full bg-black border border-zinc-800 rounded-full px-4 py-2 text-[11px]" />
             <input value={website} onChange={e=>setWebsite(e.target.value)} placeholder="Link e.g https://instagram.com/yourshop" className="w-full bg-black border border-zinc-800 rounded-full px-4 py-2 text-[11px]" />
             <textarea value={bio} onChange={e=>setBio(e.target.value)} placeholder="Bio" className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-2 text-[11px] h-20" />
-            <button onClick={saveEdit} disabled={saving} className="w-full bg-[#39FF14] text-black font-bold py-2 rounded-full text-[11px]">{saving ? 'Saving...' : 'Save Profile'}</button>
+            <button onClick={saveEdit} disabled={saving} className="w-full bg-[#39FF14] text-black font-bold py-2 rounded-full text-[11px]">{saving ? 'Saving...' : 'Save Profile — username bio link picture'}</button>
           </div>
         )}
       </div>
@@ -311,7 +337,7 @@ function VendorProfile({ vendor, currentUser, products, stories, onBack, onDM, o
         <button onClick={()=>setActiveTab('posts')} className={`flex-1 py-3 text-[11px] font-black border-t ${activeTab==='posts' ? 'border-white text-white' : 'border-transparent text-zinc-500'}`}>POSTS</button>
         <button onClick={()=>setActiveTab('tagged')} className={`flex-1 py-3 text-[11px] font-black border-t ${activeTab==='tagged' ? 'border-white text-white' : 'border-transparent text-zinc-500'}`}>TAGGED</button>
       </div>
-      {activeTab==='posts' && <div className="grid grid-cols-3 gap-0.5">{products.length===0 ? <p className="col-span-3 text-center text-[11px] text-zinc-600 py-10">No posts yet</p> : products.map(p=><button key={p.id} onClick={()=> onAddCart(p)} className="aspect-square bg-zinc-900 overflow-hidden"><img src={p.images?.[0]} className="w-full h-full object-cover" alt="" /></button>)}</div>}
+      {activeTab==='posts' && <div className="grid grid-cols-3 gap-0.5">{products.length===0 ? <p className="col-span-3 text-center text-[11px] text-zinc-600 py-10">No posts yet — upload in Profile → auto shows here + Home + Categories</p> : products.map(p=><div key={p.id} className="aspect-square bg-zinc-900 overflow-hidden relative"><img src={p.images?.[0]} className="w-full h-full object-cover" alt="" /><span className="absolute bottom-1 left-1 bg-black/70 text-[7px] px-1 rounded">{p.price}</span></div>)}</div>}
     </div>
   )
 }
@@ -319,7 +345,7 @@ function VendorProfile({ vendor, currentUser, products, stories, onBack, onDM, o
 function MessagesList({ user, onSelect }){
   const [convos, setConvos] = useState([])
   useEffect(()=>{ const load = async () => { const { data: conv } = await supabase.from('conversations').select('*').or(`buyer_id.eq.${user.id},vendor_id.eq.${user.id}`).order('created_at',{ascending:false}); if(!conv) return; const ids = conv.map(c=> c.buyer_id===user.id ? c.vendor_id : c.buyer_id); const { data: profiles } = await supabase.from('profiles').select('*').in('id', ids); const map={}; profiles?.forEach(p=>{ map[p.id]=p }); setConvos(conv.map(c=>({ ...c, other: map[c.buyer_id===user.id ? c.vendor_id : c.buyer_id] })))}; load() },[user.id])
-  return (<div className="p-4"><h2 className="font-black">Messages</h2>{convos.length===0 ? <p className="text-[11px] text-zinc-500">No chats — Message vendor from post goes here</p> : convos.map(c=><button key={c.id} onClick={()=>onSelect(c.other)} className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex gap-3 mb-2 text-left"><img src={c.other?.avatar_url} className="w-10 h-10 rounded-full" alt="" /><div><p className="text-[12px] font-bold">{c.other?.vendor_name}</p></div></button>)}</div>)
+  return (<div className="p-4"><h2 className="font-black">Messages — DM from posts</h2>{convos.length===0 ? <p className="text-[11px] text-zinc-500">No chats — Message vendor from post goes here</p> : convos.map(c=><button key={c.id} onClick={()=>onSelect(c.other)} className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex gap-3 mb-2 text-left"><img src={c.other?.avatar_url} className="w-10 h-10 rounded-full" alt="" /><div><p className="text-[12px] font-bold">{c.other?.vendor_name}</p></div></button>)}</div>)
 }
 function ChatRoom({ user, vendor, product, onBack }){
   const [msgs, setMsgs] = useState([]); const [text, setText] = useState(''); const [convId, setConvId] = useState(null); const bottomRef = useRef()
@@ -355,9 +381,11 @@ function Profile({ user, profile, fasterShop, reload, onOpenVendor }){
     if(urls.length===0){ setUploading(false); return alert('Upload failed') }
     const cleanTitle = String(productForm.title)
     const cleanPrice = productForm.price ? String(productForm.price) : '₦25000'
-    const { error } = await supabase.from('products').insert({ vendor_id: user.id, title: cleanTitle, name: cleanTitle, price: cleanPrice, category: productForm.category, images: urls, description: '' })
+    // FIX: Insert with is_featured for Featured Drop + category for Shop filter
+    const isF = isFasterOwner ? true : false
+    const { error } = await supabase.from('products').insert({ vendor_id: user.id, title: cleanTitle, name: cleanTitle, price: cleanPrice, category: productForm.category, images: urls, description: '', is_featured: isF })
     setUploading(false); setStatus('')
-    if(error) alert('DB Error: '+error.message); else { alert(`Success! ${urls.length} pics posted — auto in vendor page + Home + Categories with Like Comment Message`); setFiles([]); setProductForm({ title:'', price:'', category:'Shoes' }); reload(); setView('main') }
+    if(error) alert('DB Error: '+error.message); else { alert(`Success! ${urls.length} pics — now in Featured Drop + vendor page + Home algorithm + Categories ${productForm.category} with Like Comment DM`); setFiles([]); setProductForm({ title:'', price:'', category:'Shoes' }); reload(); setView('main') }
   }
 
   const uploadStory = async () => {
@@ -366,21 +394,22 @@ function Profile({ user, profile, fasterShop, reload, onOpenVendor }){
     const { error } = await supabase.storage.from('product-images').upload(name, storyFile, { upsert:true })
     if(error) return alert(error.message)
     const { data } = supabase.storage.from('product-images').getPublicUrl(name)
-    await supabase.from('stories').insert({ vendor_id: user.id, image_url: data.publicUrl })
-    alert('Story posted — 24h with + on avatar'); setStoryFile(null); reload(); setView('main')
+    const expires = new Date(Date.now() + 24*60*60*1000).toISOString()
+    const { error: dbErr } = await supabase.from('stories').insert({ vendor_id: user.id, image_url: data.publicUrl, expires_at: expires })
+    if(dbErr) alert(dbErr.message); else { alert('Story posted — ring now works 24h!'); setStoryFile(null); reload(); setView('main') }
   }
 
   const becomeVendor = async () => {
     if(isFasterOwner) return
     const { error } = await supabase.from('profiles').upsert({ id:user.id, email:user.email, is_vendor:true, vendor_name: user.email.split('@')[0], is_faster_shop:false })
-    if(error) alert(error.message); else { alert('You are now vendor — IG profile active'); reload() }
+    if(error) alert(error.message); else { alert('You are now vendor'); reload() }
   }
 
   if(view!=='main'){
     return (
       <div className="p-4"><button onClick={()=>setView('main')} className="mb-4">Back</button>
-        {view==='upload' && (<div><h2 className="font-black">Upload Post — Auto to vendor page + Like Comment DM</h2><div className="space-y-3 mt-4"><input placeholder="Title e.g Yellow Cargo Pants" value={productForm.title} onChange={e=>setProductForm({...productForm, title:e.target.value})} className="w-full bg-zinc-900 border border-zinc-800 rounded-full px-4 py-3 text-[11px]" /><div className="flex gap-2"><input placeholder="Price e.g 20000" value={productForm.price} onChange={e=>setProductForm({...productForm, price:e.target.value})} className="flex-1 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-3 text-[11px]" /><select value={productForm.category} onChange={e=>setProductForm({...productForm, category:e.target.value})} className="bg-zinc-900 border border-zinc-800 rounded-full px-4 py-3 text-[11px]">{CATEGORIES.slice(1).map(c=><option key={c.name}>{c.name}</option>)}</select></div><input type="file" multiple accept="image/*" onChange={e=>setFiles(Array.from(e.target.files||[]))} className="w-full text-[11px] bg-zinc-900 p-2 rounded-xl" />{files.length>0 && <div className="grid grid-cols-3 gap-2">{files.slice(0,10).map((f,i)=><img key={i} src={URL.createObjectURL(f)} className="w-full h-20 object-cover rounded-xl" alt="" />)}</div>}<p className="text-[10px] text-[#39FF14]">{files.length} selected — {status}</p><button onClick={uploadProduct} disabled={uploading} className="w-full bg-[#39FF14] text-black font-bold py-3 rounded-full text-[11px]">{uploading ? status : `Post ${files.length} Pictures`}</button></div></div>)}
-        {view==='story' && (<div><h2 className="font-black">Upload Story — + on avatar, 24h</h2><div className="space-y-3 mt-4"><input type="file" accept="image/*" onChange={e=>setStoryFile(e.target.files?.[0]||null)} className="w-full text-[11px] bg-zinc-900 p-2 rounded-xl" />{storyFile && <img src={URL.createObjectURL(storyFile)} className="w-full h-64 object-cover rounded-2xl" alt="" />}<button onClick={uploadStory} className="w-full bg-white text-black font-bold py-3 rounded-full text-[11px]">Post Story — 24h</button></div></div>)}
+        {view==='upload' && (<div><h2 className="font-black">Upload Post — Featured + Vendor + Home + Categories + Like Comment DM</h2><div className="space-y-3 mt-4"><input placeholder="Title e.g Yellow Cargo Pants" value={productForm.title} onChange={e=>setProductForm({...productForm, title:e.target.value})} className="w-full bg-zinc-900 border border-zinc-800 rounded-full px-4 py-3 text-[11px]" /><div className="flex gap-2"><input placeholder="Price e.g 20000" value={productForm.price} onChange={e=>setProductForm({...productForm, price:e.target.value})} className="flex-1 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-3 text-[11px]" /><select value={productForm.category} onChange={e=>setProductForm({...productForm, category:e.target.value})} className="bg-zinc-900 border border-zinc-800 rounded-full px-4 py-3 text-[11px]">{CATEGORIES.slice(1).map(c=><option key={c.name}>{c.name}</option>)}</select></div><input type="file" multiple accept="image/*" onChange={e=>setFiles(Array.from(e.target.files||[]))} className="w-full text-[11px] bg-zinc-900 p-2 rounded-xl" />{files.length>0 && <div className="grid grid-cols-3 gap-2">{files.slice(0,10).map((f,i)=><img key={i} src={URL.createObjectURL(f)} className="w-full h-20 object-cover rounded-xl" alt="" />)}</div>}<p className="text-[10px] text-[#39FF14]">{files.length} selected — {status}</p><button onClick={uploadProduct} disabled={uploading} className="w-full bg-[#39FF14] text-black font-bold py-3 rounded-full text-[11px]">{uploading ? status : `Post ${files.length} Pictures — Featured Drop + IG + Home + Categories`}</button></div></div>)}
+        {view==='story' && (<div><h2 className="font-black">Upload Story — + on avatar, 24h — FIXED</h2><div className="space-y-3 mt-4"><input type="file" accept="image/*" onChange={e=>setStoryFile(e.target.files?.[0]||null)} className="w-full text-[11px] bg-zinc-900 p-2 rounded-xl" />{storyFile && <img src={URL.createObjectURL(storyFile)} className="w-full h-64 object-cover rounded-2xl" alt="" />}<button onClick={uploadStory} className="w-full bg-white text-black font-bold py-3 rounded-full text-[11px]">Post Story — 24h ring now works</button></div></div>)}
       </div>
     )
   }
@@ -389,18 +418,18 @@ function Profile({ user, profile, fasterShop, reload, onOpenVendor }){
     <div className="p-4 space-y-3">
       <button onClick={()=>onOpenVendor(profile)} className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center gap-3 text-left">
         <div className="w-12 h-12 bg-white text-black rounded-full flex items-center justify-center font-black">{user.email[0].toUpperCase()}</div>
-        <div><p className="text-[12px] font-bold">{profile?.vendor_name || user.email.split('@')[0]} {profile?.is_faster_shop && <span className="bg-[#39FF14] text-black text-[7px] px-2 py-1 rounded-full ml-1">OFFICIAL — YOU ONLY</span>} {profile?.is_vendor && !profile?.is_faster_shop && <span className="bg-white text-black text-[7px] px-2 py-1 rounded-full ml-1">VENDOR IG</span>} {!profile?.is_vendor && <span className="bg-zinc-700 text-white text-[7px] px-2 py-1 rounded-full ml-1">BUYER</span>}</p><p className="text-[10px] text-zinc-500">Tap for IG profile — edit username, bio, link, picture, story +</p></div>
+        <div><p className="text-[12px] font-bold">{profile?.vendor_name || user.email.split('@')[0]} {profile?.is_faster_shop && <span className="bg-[#39FF14] text-black text-[7px] px-2 py-1 rounded-full ml-1">OFFICIAL — YOU ONLY</span>} {profile?.is_vendor && !profile?.is_faster_shop && <span className="bg-white text-black text-[7px] px-2 py-1 rounded-full ml-1">VENDOR IG</span>} {!profile?.is_vendor && <span className="bg-zinc-700 text-white text-[7px] px-2 py-1 rounded-full ml-1">BUYER</span>}</p><p className="text-[10px] text-zinc-500">Tap for IG profile — + on avatar = story 24h, edit username bio link picture</p></div>
       </button>
 
       {isFasterOwner ? (
         <>
-          <button onClick={()=>setView('upload')} className="w-full bg-[#39FF14] text-black font-black py-4 rounded-full text-[11px]">Upload to Faster Shop Official — auto to vendor page</button>
-          <button onClick={()=>setView('story')} className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-left text-[12px]">Upload Story — + sign on avatar → 24h</button>
+          <button onClick={()=>setView('upload')} className="w-full bg-[#39FF14] text-black font-black py-4 rounded-full text-[11px]">Upload to Featured Drop + Vendor + Home + Categories</button>
+          <button onClick={()=>setView('story')} className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-left text-[12px]">Upload Story — + on avatar → 24h — FIXED</button>
         </>
       ) : (
         <>
-          <button onClick={()=>setView('upload')} className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-left text-[12px]">Upload Post — auto to vendor page with Like Comment DM →</button>
-          <button onClick={()=>setView('story')} className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-left text-[12px]">Upload Story — + on avatar →</button>
+          <button onClick={()=>setView('upload')} className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-left text-[12px]">Upload Post — Featured + Vendor + Home + Categories + Like Comment DM →</button>
+          <button onClick={()=>setView('story')} className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-left text-[12px]">Upload Story — + on avatar → 24h →</button>
           {!profile?.is_vendor && <button onClick={becomeVendor} className="w-full bg-white text-black font-black py-4 rounded-full text-[11px]">Become Vendor — Get IG Profile</button>}
         </>
       )}
