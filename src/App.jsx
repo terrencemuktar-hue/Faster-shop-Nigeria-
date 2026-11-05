@@ -19,6 +19,7 @@ export default function App(){
   const [followMap,setFollowMap]=useState({})
   const [likes,setLikes]=useState({})
   const [comments,setComments]=useState({})
+  const [notifications,setNotifications]=useState([])
 
   useEffect(()=>{supabase.auth.getSession().then(({data})=>setUser(data.session?.user||null));supabase.auth.onAuthStateChange((_e,s)=>setUser(s?.user||null))},[])
   useEffect(()=>{if(user)loadAll()},[user])
@@ -41,24 +42,34 @@ export default function App(){
       const lm={};lk?.forEach(l=>lm[l.product_id]=true);setLikes(lm)
       const {data:cm}=await supabase.from('comments').select('*').order('created_at',{ascending:true})
       const cmap={};cm?.forEach(c=>{if(!cmap[c.product_id])cmap[c.product_id]=[];cmap[c.product_id].push(c)});setComments(cmap)
+      const {data:notifs}=await supabase.from('notifications').select('*').eq('user_id',user.id).order('created_at',{ascending:false}).limit(50)
+      setNotifications(notifs||[])
     }
   }
   const getVendor=(id)=>{if(!id)return null;if(fasterShop?.id===id)return fasterShop;return vendors.find(v=>v.id===id)||(profile?.id===id?profile:null)||null}
+  const sendNotif=async(targetUserId,type,title,message,product_id)=>{
+    if(!targetUserId||targetUserId===user.id)return
+    try{await supabase.from('notifications').insert({user_id:targetUserId,actor_id:user.id,actor_name:profile?.vendor_name||user.email?.split('@')[0]||'User',type,title,message,product_id})}catch(e){}
+  }
   const toggleLike=async(pid)=>{
     const isLiked=likes[pid]
+    const prod=products.find(x=>x.id===pid)
     if(isLiked){await supabase.from('likes').delete().eq('user_id',user.id).eq('product_id',pid);const n={...likes};delete n[pid];setLikes(n)}
-    else{await supabase.from('likes').insert({user_id:user.id,product_id:pid});setLikes({...likes,[pid]:true})}
+    else{await supabase.from('likes').insert({user_id:user.id,product_id:pid});setLikes({...likes,[pid]:true});if(prod)sendNotif(prod.vendor_id,'like','Liked your product',`liked your post: ${prod.title||prod.name}`,pid)}
   }
   const addComment=async(pid,text)=>{
     if(!text.trim())return
     const {data}=await supabase.from('comments').insert({user_id:user.id,product_id:pid,text}).select().single()
-    if(data)setComments(prev=>({...prev,[pid]:[...(prev[pid]||[]),data]}))
+   
+    if(data){setComments(prev=>({...prev,[pid]:[...(prev[pid]||[]),data]}));
   }
   const deletePost=async(pid)=>{
     if(!confirm('Delete this post?'))return
     await supabase.from('products').delete().eq('id',pid)
     setProducts(prev=>prev.filter(p=>p.id!==pid))
   }
+  const unreadCount=notifications.filter(n=>!n.is_read).length
+  const markNotifsRead=async()=>{if(!unreadCount)return;await supabase.from('notifications').update({is_read:true}).eq('user_id',user.id).eq('is_read',false);setNotifications(prev=>prev.map(n=>({...n,is_read:true})))}
 
   if(!user)return <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6"><div className="w-12 h-12 bg-white text-black font-black flex items-center justify-center rounded-xl">F</div><h1 className="font-black mt-3">FASTER SHOP</h1><AuthForm/></div>
 
@@ -66,19 +77,23 @@ export default function App(){
     <div className="min-h-screen bg-black text-white pb-20">
       <div className="sticky top-0 z-50 bg-black border-b border-zinc-900 px-4 py-3 flex items-center justify-between">
         <div className="w-9 h-9 bg-white text-black font-black flex items-center justify-center rounded-lg text-[15px]">F</div>
-        <button onClick={()=>setTab('settings')} className="text-[18px]">⚙️</button>
+        <div className="flex items-center gap-1">
+          <button onClick={()=>{setTab('notifications');markNotifsRead()}} className="relative w-9 h-9 flex items-center justify-center text-[18px]">🔔{unreadCount>0&&<span className="absolute top-0 right-0 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-black">{unreadCount>9?'9+':unreadCount}</span>}</button>
+          <button onClick={()=>setTab('settings')} className="w-9 h-9 flex items-center justify-center text-[18px]">⚙️</button>
+        </div>
       </div>
 
       {activeStory&&<div className="fixed inset-0 z-[100] bg-black flex flex-col"><div className="p-4 flex gap-3 items-center"><img src={getVendor(activeStory.vendor_id||activeStory.user_id)?.avatar_url} className="w-8 h-8 rounded-full"/><p className="text-[11px] font-bold">{getVendor(activeStory.vendor_id||activeStory.user_id)?.vendor_name}</p><button onClick={()=>setActiveStory(null)} className="ml-auto">✕</button></div><img src={activeStory.image_url||activeStory.media_url||activeStory.url} className="flex-1 object-contain" alt=""/></div>}
 
       {tab==='home'&&<Home products={products} stories={stories} fasterShop={fasterShop} vendors={vendors} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}} onDM={(v,p)=>{setSelectedChat(v);setSelectedProduct(p);setTab('chat')}} onStoryClick={setActiveStory} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike} comments={comments} addComment={addComment} deletePost={deletePost} vendorsList={vendors} profile={profile}/>}
       {tab==='shop'&&<Shop products={products} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike}/>}
-      {tab==='vendor'&&<VendorProfile vendor={selectedVendor} currentUser={user} products={products.filter(p=>p.vendor_id===selectedVendor?.id)} stories={stories.filter(s=>(s.vendor_id===selectedVendor?.id||s.user_id===selectedVendor?.id))} onBack={()=>setTab('home')} onStoryClick={setActiveStory} reload={loadAll} followMap={followMap} setFollowMap={setFollowMap} fasterShop={fasterShop}/>}
+      {tab==='vendor'&&<VendorProfile vendor={selectedVendor} currentUser={user} products={products.filter(p=>p.vendor_id===selectedVendor?.id)} stories={stories.filter(s=>(s.vendor_id===selectedVendor?.id||s.user_id===selectedVendor?.id))} onBack={()=>setTab('home')} onStoryClick={setActiveStory} reload={loadAll} followMap={followMap} setFollowMap={setFollowMap} fasterShop={fasterShop} sendNotif={sendNotif} profile={profile}/>}
       {tab==='messages'&&<MessagesList user={user} vendors={vendors} fasterShop={fasterShop} profile={profile} onSelect={(v)=>{setSelectedChat(v);setTab('chat')}}/>}
-      {tab==='chat'&&<ChatRoom user={user} vendor={selectedChat} product={selectedProduct} onBack={()=>setTab('messages')}/>}
+      {tab==='chat'&&<ChatRoom user={user} vendor={selectedChat} product={selectedProduct} onBack={()=>setTab('messages')} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}} reload={loadAll} profile={profile}/>}
       {tab==='cart'&&<div className="p-4"><h2 className="font-black text-[13px]">Cart — Fastershop Store Only</h2>{cart.length===0?<p className="text-[11px] text-zinc-500 mt-6">Empty</p>:cart.map((p,i)=><div key={i} className="bg-zinc-900 p-3 rounded-xl flex gap-3 mt-2"><img src={p.images?.[0]} className="w-16 h-16 rounded-xl object-cover" alt=""/><div><p className="text-[11px] font-bold">{p.title||p.name}</p><p className="text-[10px] text-zinc-400">{p.price}</p></div></div>)}<button className="w-full mt-4 bg-[#39FF14] text-black font-black py-3 rounded-full text-[11px]">Pay with Paystack</button></div>}
       {tab==='profile'&&<Profile user={user} profile={profile} products={products.filter(p=>p.vendor_id===user.id)} reload={loadAll}/>}
       {tab==='settings'&&<Settings user={user} profile={profile} reload={loadAll} onBack={()=>setTab('profile')}/>}
+      {tab==='notifications'&&<Notifications notifications={notifications} products={products} getVendor={getVendor} onBack={()=>setTab('home')} onOpenProduct={(p)=>{const v=getVendor(p?.vendor_id);if(v){setSelectedVendor(v);setTab('vendor')}}} onOpenChat={(actorId)=>{const v=getVendor(actorId);if(v){setSelectedChat(v);setTab('chat')}}} onClear={async()=>{await supabase.from('notifications').delete().eq('user_id',user.id);setNotifications([])}}/>}
 
       <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-zinc-900 flex justify-around py-3 text-[11px]">
         <button onClick={()=>setTab('home')} className={tab==='home'?'text-white font-black':'text-zinc-500'}>Home</button>
@@ -89,6 +104,12 @@ export default function App(){
       </div>
     </div>
   )
+}
+
+function Notifications({notifications,products,getVendor,onBack,onOpenProduct,onOpenChat,onClear}){
+  const getIcon=(t)=>t==='like'?'❤️':t==='comment'?'💬':t==='follow'?'👤':t==='message'?'✉️':'🔔'
+  return <div className="p-4"><div className="flex items-center justify-between mb-4"><div className="flex gap-3 items-center"><button onClick={onBack}>Back</button><h2 className="font-black text-[14px]">Notifications</h2></div>{notifications.length>0&&<button onClick={onClear} className="text-[10px] text-zinc-400">Clear all</button>}</div>
+  {notifications.length===0?<div className="text-center py-16"><p className="text-[32px]">🔔</p><p className="text-[12px] font-bold mt-2">No notifications yet</p><p className="text-[11px] text-zinc-500 mt-1">When someone likes, comments, follows or messages you,<br/>it will show here.</p></div>:<div className="space-y-2">{notifications.map(n=>{const prod=products.find(p=>p.id===n.product_id);return <button key={n.id} onClick={()=>{if(n.type==='message')onOpenChat(n.actor_id);else if(prod)onOpenProduct(prod)}} className={`w-full text-left bg-zinc-900 border ${n.is_read?'border-zinc-800':'border-[#39FF14]/40'} p-3 rounded-2xl flex gap-3`}><div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-[16px] shrink-0">{getIcon(n.type)}</div><div className="flex-1 min-w-0"><p className="text-[11px] font-bold">{n.title} <span className="text-zinc-400 font-normal">• {n.actor_name||''}</span></p><p className="text-[11px] text-zinc-300 mt-0.5 line-clamp-2">{n.message}</p><p className="text-[9px] text-zinc-500 mt-1">{new Date(n.created_at).toLocaleString()}</p></div>{prod?.images?.[0]&&<img src={prod.images[0]} className="w-12 h-12 rounded-xl object-cover shrink-0" alt=""/>}{!n.is_read&&<span className="w-2 h-2 bg-[#39FF14] rounded-full shrink-0 mt-2"/>}</button>})}</div>}</div>
 }
 
 function PostSlider({images}){
@@ -158,17 +179,16 @@ function Shop({products,selectedCategory,setSelectedCategory,getVendor,user,like
   return <div className="p-4"><div className="flex gap-2 overflow-x-auto pb-3">{CATS.map(c=><button key={c} onClick={()=>setSelectedCategory(c)} className={`px-4 py-2 rounded-full text-[11px] border ${selectedCategory===c?'bg-white text-black':'bg-zinc-900 border-zinc-800'}`}>{c}</button>)}</div><div className="grid grid-cols-2 gap-3">{filtered.map(p=>{const v=getVendor(p.vendor_id); const img=(p.images||[])[0]; return <div key={p.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden"><div className="relative"><img src={img} className="w-full h-36 object-cover" alt=""/>{p.images?.length>1&&<span className="absolute top-2 right-2 bg-black/70 text-[8px] px-2 py-1 rounded-full">{p.images.length} SLIDES</span>}<button onClick={()=>toggleLike(p.id)} className="absolute bottom-2 right-2 bg-black/60 w-7 h-7 rounded-full text-[12px]">{likes[p.id]?'❤️':'🤍'}</button></div><div className="p-2"><p className="text-[10px] font-bold truncate">{p.title||p.name}</p><p className="text-[9px] text-zinc-400">₦{p.price}{p.size?` • Size: ${p.size}`:''} • {v?.vendor_name}</p></div></div>})}</div></div>
 }
 
-function VendorProfile({vendor,currentUser,products,stories,onBack,onStoryClick,reload,followMap,setFollowMap,fasterShop}){
+function VendorProfile({vendor,currentUser,products,stories,onBack,onStoryClick,reload,followMap,setFollowMap,fasterShop,sendNotif,profile}){
   const [followers,setFollowers]=useState(0)
   const [following,setFollowing]=useState(0)
   const [editingBio,setEditingBio]=useState(false)
   const [bioText,setBioText]=useState(vendor?.bio||'')
   const [selectedPost,setSelectedPost]=useState(null)
   const [postIdx,setPostIdx]=useState(0)
-  const [storyInputRef,setStoryInputRef]=useState(null)
   const isOwn=currentUser?.id===vendor?.id
   useEffect(()=>{const load=async()=>{const {count:f1}=await supabase.from('follows').select('*',{count:'exact',head:true}).eq('following_id',vendor?.id);const {count:f2}=await supabase.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',vendor?.id);setFollowers(f1||0);setFollowing(f2||0);setBioText(vendor?.bio||'')};load()},[vendor?.id])
-  const toggleFollow=async()=>{const isF=followMap[vendor.id]; if(isF){await supabase.from('follows').delete().eq('follower_id',currentUser.id).eq('following_id',vendor.id);const nm={...followMap};delete nm[vendor.id];setFollowMap(nm);setFollowers(f=>f-1)}else{await supabase.from('follows').insert({follower_id:currentUser.id,following_id:vendor.id});setFollowMap({...followMap,[vendor.id]:true});setFollowers(f=>f+1)}}
+  const toggleFollow=async()=>{const isF=followMap[vendor.id]; if(isF){await supabase.from('follows').delete().eq('follower_id',currentUser.id).eq('following_id',vendor.id);const nm={...followMap};delete nm[vendor.id];setFollowMap(nm);setFollowers(f=>f-1)}else{await supabase.from('follows').insert({follower_id:currentUser.id,following_id:vendor.id});setFollowMap({...followMap,[vendor.id]:true});setFollowers(f=>f+1);if(sendNotif)sendNotif(vendor.id,'follow','New follower',`started following you`,null)}}
   const saveBio=async()=>{await supabase.from('profiles').update({bio:bioText}).eq('id',vendor.id);await reload();setEditingBio(false)}
   const changeAvatar=async()=>{
     const input=document.createElement('input');input.type='file';input.accept='image/*';
@@ -282,7 +302,6 @@ function Settings({user,profile,reload,onBack}){
   const [newPass,setNewPass]=useState('')
   const [bio,setBio]=useState(profile?.bio||'')
   const [vendorName,setVendorName]=useState(profile?.vendor_name||'')
-
   const saveProfile=async()=>{await supabase.from('profiles').update({bio,vendor_name:vendorName}).eq('id',user.id);await reload();alert('Profile saved')}
   const changePassword=async()=>{if(!newPass)return alert('Enter new password');const {error}=await supabase.auth.updateUser({password:newPass});if(error)alert(error.message);else{alert('Password changed');setNewPass('')}}
   const clearCache=()=>{localStorage.clear();alert('Cache cleared')}
@@ -299,19 +318,59 @@ function Settings({user,profile,reload,onBack}){
 
 function MessagesList({user,vendors,fasterShop,profile,onSelect}){
   const [convos,setConvos]=useState([])
-  useEffect(()=>{const load=async()=>{const{data:conv}=await supabase.from('conversations').select('*').or(`buyer_id.eq.${user.id},vendor_id.eq.${user.id}`).order('created_at',{ascending:false});if(!conv)return;const all=[...vendors];if(fasterShop)all.push(fasterShop);if(profile)all.push(profile);const map={};all.forEach(p=>map[p.id]=p);setConvos(conv.map(c=>{const otherId=c.buyer_id===user.id?c.vendor_id:c.buyer_id;return {...c,other:map[otherId]||{vendor_name:'Vendor',id:otherId}} }))};load()},[user.id,vendors,fasterShop,profile])
-  return <div className="p-4"><h2 className="font-black text-[13px] mb-3">Messages</h2>{convos.map(c=><button key={c.id} onClick={()=>onSelect(c.other)} className="w-full bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex gap-3 mb-2 text-left"><img src={c.other?.avatar_url} className="w-10 h-10 rounded-full" alt=""/><p className="text-[12px] font-bold">{c.other?.vendor_name}</p></button>)}</div>
+  const [search,setSearch]=useState('')
+  const [openMenu,setOpenMenu]=useState(null)
+  const [lastMsgs,setLastMsgs]=useState({})
+  useEffect(()=>{const load=async()=>{const{data:conv}=await supabase.from('conversations').select('*').or(`buyer_id.eq.${user.id},vendor_id.eq.${user.id}`).order('created_at',{ascending:false});if(!conv)return;const all=[...vendors];if(fasterShop)all.push(fasterShop);if(profile)all.push(profile);const map={};all.forEach(p=>map[p.id]=p);const list=conv.map(c=>{const otherId=c.buyer_id===user.id?c.vendor_id:c.buyer_id;return {...c,other:map[otherId]||{vendor_name:'Vendor',id:otherId}} });setConvos(list);for(const c of list){const {data:m}=await supabase.from('messages').select('*').eq('conversation_id',c.id).order('created_at',{ascending:false}).limit(1);if(m?.[0])setLastMsgs(prev=>({...prev,[c.id]:m[0]}))}};load()},[user.id,vendors,fasterShop,profile])
+  const deleteChat=async(c)=>{
+    if(!confirm(`Delete chat with ${c.other?.vendor_name}? This cannot be undone.`))return
+    await supabase.from('messages').delete().eq('conversation_id',c.id)
+    await supabase.from('conversations').delete().eq('id',c.id)
+    setConvos(prev=>prev.filter(x=>x.id!==c.id));setOpenMenu(null)
+  }
+  const filtered=convos.filter(c=>c.other?.vendor_name?.toLowerCase().includes(search.toLowerCase())||lastMsgs[c.id]?.text?.toLowerCase().includes(search.toLowerCase()))
+  return <div className="p-4"><div className="flex items-center justify-between mb-3"><h2 className="font-black text-[14px]">Messages</h2><span className="text-[10px] bg-zinc-900 px-2 py-1 rounded-full text-zinc-400">{convos.length} chats</span></div>
+  <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search chats..." className="w-full bg-zinc-900 border border-zinc-800 rounded-full px-4 py-3 text-[11px] mb-3"/>
+  {filtered.length===0?<div className="text-center py-12"><p className="text-[28px]">💬</p><p className="text-[11px] text-zinc-500 mt-2">{search?'No chats match your search':'No messages yet — tap Message on any product to start a chat'}</p></div>:filtered.map(c=><div key={c.id} className="relative bg-zinc-900 border border-zinc-800 p-3 rounded-2xl flex gap-3 mb-2"><button onClick={()=>onSelect(c.other)} className="flex gap-3 flex-1 text-left min-w-0"><img src={c.other?.avatar_url||''} className="w-11 h-11 rounded-full object-cover bg-zinc-800 shrink-0" alt=""/><div className="flex-1 min-w-0"><div className="flex justify-between items-center"><p className="text-[12px] font-bold truncate">{c.other?.vendor_name}</p><p className="text-[9px] text-zinc-500 shrink-0">{lastMsgs[c.id]?new Date(lastMsgs[c.id].created_at).toLocaleDateString():''}</p></div><p className="text-[11px] text-zinc-400 truncate mt-0.5">{lastMsgs[c.id]?`${lastMsgs[c.id].sender_id===user.id?'You: ':''}${lastMsgs[c.id].text}`:'Start chatting...'}</p></div></button><button onClick={()=>setOpenMenu(openMenu===c.id?null:c.id)} className="text-zinc-400 px-1 text-[16px] shrink-0">⋮</button>{openMenu===c.id&&<div className="absolute right-2 top-10 z-20 bg-zinc-800 border border-zinc-700 rounded-xl overflow-hidden w-40 shadow-xl"><button onClick={()=>{setOpenMenu(null);onSelect(c.other)}} className="w-full text-left px-3 py-2.5 text-[11px] hover:bg-zinc-700">Open Chat</button><button onClick={()=>deleteChat(c)} className="w-full text-left px-3 py-2.5 text-[11px] text-red-400 hover:bg-zinc-700">🗑️ Delete Chat</button></div>}</div>)}
+  </div>
 }
-function ChatRoom({user,vendor,product,onBack}){
-  const [msgs,setMsgs]=useState([]);const [text,setText]=useState('');const [convId,setConvId]=useState(null);const ref=useRef()
+
+function ChatRoom({user,vendor,product,onBack,onOpenVendor,reload,profile}){
+  const [msgs,setMsgs]=useState([]);const [text,setText]=useState('');const [convId,setConvId]=useState(null);const [showMenu,setShowMenu]=useState(false);const ref=useRef()
   useEffect(()=>{const init=async()=>{let{data:conv}=await supabase.from('conversations').select('*').or(`and(buyer_id.eq.${user.id},vendor_id.eq.${vendor.id}),and(buyer_id.eq.${vendor.id},vendor_id.eq.${user.id})`).maybeSingle();if(!conv){const{data:newConv}=await supabase.from('conversations').insert({buyer_id:user.id,vendor_id:vendor.id}).select().single();conv=newConv}setConvId(conv.id);const{data:m}=await supabase.from('messages').select('*').eq('conversation_id',conv.id).order('created_at');setMsgs(m||[])};init()},[user.id,vendor.id])
   useEffect(()=>{if(!convId)return;const ch=supabase.channel(`chat-${convId}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`conversation_id=eq.${convId}`},p=>setMsgs(prev=>[...prev,p.new])).subscribe();return()=>supabase.removeChannel(ch)},[convId])
   useEffect(()=>{ref.current?.scrollIntoView({behavior:'smooth'})},[msgs])
-  const send=async()=>{if(!text.trim()||!convId)return;await supabase.from('messages').insert({conversation_id:convId,sender_id:user.id,text});setText('')}
-  return <div className="flex flex-col h-[calc(100vh-112px)]"><div className="p-4 border-b border-zinc-900 flex gap-3"><button onClick={onBack}>Back</button><p className="text-[12px] font-bold">{vendor?.vendor_name}</p></div>{product&&<div className="p-3 bg-zinc-900 border-b border-zinc-800 flex gap-3"><img src={product.images?.[0]} className="w-12 h-12 rounded-lg object-cover"/><div><p className="text-[11px] font-bold">{product.title}</p><p className="text-[10px] text-zinc-400">{product.price}</p></div></div>}<div className="flex-1 overflow-y-auto p-4 space-y-3">{msgs.map(m=><div key={m.id} className={`max-w-[75%] p-3 rounded-2xl text-[11px] ${m.sender_id===user.id?'ml-auto bg-[#39FF14] text-black':'bg-zinc-900 border border-zinc-800'}`}>{m.text}</div>)}<div ref={ref}></div></div><div className="p-3 border-t border-zinc-900 flex gap-2"><input value={text} onChange={e=>setText(e.target.value)} placeholder="Message..." className="flex-1 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-3 text-[11px]" onKeyDown={e=>e.key==='Enter'&&send()}/><button onClick={send} className="bg-white text-black px-5 rounded-full text-[11px] font-bold">Send</button></div></div>
+  const send=async()=>{if(!text.trim()||!convId)return;await supabase.from('messages').insert({conversation_id:convId,sender_id:user.id,text});try{const otherId=vendor.id;if(otherId!==user.id)await supabase.from('notifications').insert({user_id:otherId,actor_id:user.id,actor_name:profile?.vendor_name||user.email?.split('@')[0]||'User',type:'message',title:'New message',message:text})}catch(e){};setText('')}
+  const clearChat=async()=>{if(!confirm('Clear all messages in this chat?'))return;await supabase.from('messages').delete().eq('conversation_id',convId);setMsgs([]);setShowMenu(false)}
+  const deleteChat=async()=>{if(!confirm('Delete this entire chat?'))return;await supabase.from('messages').delete().eq('conversation_id',convId);await supabase.from('conversations').delete().eq('id',convId);onBack()}
+  return <div className="flex flex-col h-[calc(100vh-112px)]"><div className="p-4 border-b border-zinc-900 flex gap-3 items-center relative"><button onClick={onBack}>Back</button><img src={vendor?.avatar_url||''} className="w-8 h-8 rounded-full object-cover bg-zinc-800" alt=""/><div className="flex-1 min-w-0"><p className="text-[12px] font-bold truncate">{vendor?.vendor_name}</p><p className="text-[9px] text-[#39FF14]">● Online</p></div><button onClick={()=>setShowMenu(!showMenu)} className="text-[18px] px-2">⋮</button>{showMenu&&<div className="absolute right-3 top-12 z-20 bg-zinc-800 border border-zinc-700 rounded-xl overflow-hidden w-44 shadow-xl"><button onClick={()=>{setShowMenu(false);if(onOpenVendor)onOpenVendor(vendor)}} className="w-full text-left px-3 py-2.5 text-[11px] hover:bg-zinc-700">View Profile</button><button onClick={clearChat} className="w-full text-left px-3 py-2.5 text-[11px] hover:bg-zinc-700">Clear Chat</button><button onClick={deleteChat} className="w-full text-left px-3 py-2.5 text-[11px] text-red-400 hover:bg-zinc-700">🗑️ Delete Chat</button></div>}</div>{product&&<div className="p-3 bg-zinc-900 border-b border-zinc-800 flex gap-3"><img src={product.images?.[0]} className="w-12 h-12 rounded-lg object-cover"/><div><p className="text-[11px] font-bold">{product.title}</p><p className="text-[10px] text-zinc-400">₦{product.price}{product.size?` • Size: ${product.size}`:''}</p></div></div>}<div className="flex-1 overflow-y-auto p-4 space-y-3">{msgs.length===0&&<p className="text-center text-[11px] text-zinc-500 mt-10">No messages yet — say hi 👋</p>}{msgs.map(m=><div key={m.id} className={`max-w-[75%] p-3 rounded-2xl text-[11px] ${m.sender_id===user.id?'ml-auto bg-[#39FF14] text-black':'bg-zinc-900 border border-zinc-800'}`}>{m.text}<p className={`text-[8px] mt-1 ${m.sender_id===user.id?'text-black/60':'text-zinc-500'}`}>{new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</p></div>)}<div ref={ref}></div></div><div className="p-3 border-t border-zinc-900 flex gap-2"><input value={text} onChange={e=>setText(e.target.value)} placeholder="Message..." className="flex-1 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-3 text-[11px]" onKeyDown={e=>e.key==='Enter'&&send()}/><button onClick={send} className="bg-white text-black px-5 rounded-full text-[11px] font-bold">Send</button></div></div>
 }
+
 function AuthForm(){
-  const [email,setEmail]=useState('');const [pass,setPass]=useState('');const [mode,setMode]=useState('login')
-  const handle=async(e)=>{e.preventDefault();try{if(mode==='signup'){const{error}=await supabase.auth.signUp({email,password:pass});if(error)throw error;alert('Created! Login now');setMode('login')}else{const{error}=await supabase.auth.signInWithPassword({email,password:pass});if(error)throw error}}catch(err){alert(err.message)}}
-  return <form onSubmit={handle} className="w-full max-w-sm space-y-3 mt-6"><input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full p-3 rounded-full bg-zinc-900 border border-zinc-800 text-sm"/><input value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="Password" className="w-full p-3 rounded-full bg-zinc-900 border border-zinc-800 text-sm"/><button className="w-full bg-[#39FF14] text-black font-bold py-3 rounded-full text-sm">{mode==='signup'?'Create Account':'Login'}</button><button type="button" onClick={()=>setMode(mode==='login'?'signup':'login')} className="w-full text-[11px] text-zinc-500">{mode==='login'?'Need account? Signup':'Have account? Login'}</button></form>
+  const [email,setEmail]=useState('')
+  const [pass,setPass]=useState('')
+  const [mode,setMode]=useState('login')
+  const handle=async(e)=>{
+    e.preventDefault()
+    try{
+      if(mode==='signup'){
+        const {error}=await supabase.auth.signUp({email,password:pass})
+        if(error) throw error
+        alert('Created! Login now')
+        setMode('login')
+      }else{
+        const {error}=await supabase.auth.signInWithPassword({email,password:pass})
+        if(error) throw error
+      }
+    }catch(err){ alert(err.message) }
+  }
+  return(
+    <form onSubmit={handle} className="w-full max-w-sm space-y-3 mt-6">
+      <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full p-3 rounded-full bg-zinc-900 border border-zinc-800 text-sm" />
+      <input value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="Password" className="w-full p-3 rounded-full bg-zinc-900 border border-zinc-800 text-sm" />
+      <button className="w-full bg-[#39FF14] text-black font-bold py-3 rounded-full text-sm">{mode==='signup'?'Create Account':'Login'}</button>
+      <button type="button" onClick={()=>setMode(mode==='login'?'signup':'login')} className="w-full text-[11px] text-zinc-500">{mode==='login'?'Need account? Signup':'Have account? Login'}</button>
+    </form>
+  )
+}
 }
