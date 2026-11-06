@@ -19,6 +19,7 @@ export default function App(){
   const [followMap,setFollowMap]=useState({})
   const [likes,setLikes]=useState({})
   const [comments,setComments]=useState({})
+const [notifications,setNotifications]=useState([])
 
   useEffect(()=>{supabase.auth.getSession().then(({data})=>setUser(data.session?.user||null));supabase.auth.onAuthStateChange((_e,s)=>setUser(s?.user||null))},[])
   useEffect(()=>{if(user)loadAll()},[user])
@@ -39,10 +40,18 @@ export default function App(){
       const m={};follows?.forEach(f=>m[f.following_id]=true);setFollowMap(m)
       const {data:lk}=await supabase.from('likes').select('*').eq('user_id',user.id)
       const lm={};lk?.forEach(l=>lm[l.product_id]=true);setLikes(lm)
-      const {data:cm}=await supabase.from('comments').select('*').order('created_at',{ascending:true})
+     const {data:cm}=await supabase.from('comments').select('*').order('created_at',{ascending:true}) 
       const cmap={};cm?.forEach(c=>{if(!cmap[c.product_id])cmap[c.product_id]=[];cmap[c.product_id].push(c)});setComments(cmap)
+        const {data:notifs}=await supabase.from('notifications').select('*').eq('user_id',user.id).order('created_at',{ascending:false}).limit(50)
+setNotifications(notifs||[])
     }
   }
+  const sendNotif=async(targetUserId,type,title,message,product_id)=>{
+  if(!targetUserId||targetUserId===user.id)return
+  try{await supabase.from('notifications').insert({user_id:targetUserId,actor_id:user.id,actor_name:profile?.vendor_name||user.email?.split('@')[0]||'User',type,title,message,product_id})}catch(e){}
+}
+const unreadCount=notifications.filter(n=>!n.is_read).length
+const markNotifsRead=async()=>{if(!unreadCount)return;await supabase.from('notifications').update({is_read:true}).eq('user_id',user.id).eq('is_read',false);setNotifications(prev=>prev.map(n=>({...n,is_read:true})))}
   const getVendor=(id)=>{if(!id)return null;if(fasterShop?.id===id)return fasterShop;return vendors.find(v=>v.id===id)||(profile?.id===id?profile:null)||null}
   const toggleLike=async(pid)=>{
     const isLiked=likes[pid]
@@ -66,7 +75,8 @@ export default function App(){
     <div className="min-h-screen bg-black text-white pb-20">
       <div className="sticky top-0 z-50 bg-black border-b border-zinc-900 px-4 py-3 flex items-center justify-between">
         <div className="w-9 h-9 bg-white text-black font-black flex items-center justify-center rounded-lg text-[15px]">F</div>
-        <button onClick={()=>setTab('settings')} className="text-[18px]">⚙️</button>
+        <button onClick={()=>{setTab('notifications');markNotifsRead()}} className="relative w-9 h-9 flex items-center justify-center text-[18px]">🔔{unreadCount>0&&<span className="absolute top-0 right-0 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-black">{unreadCount>9?'9+':unreadCount}</span>}</button>
+<button onClick={()=>setTab('settings')} className="w-9 h-9 flex items-center justify-center text-[18px]">⚙️</button>
       </div>
 
       {activeStory&&<div className="fixed inset-0 z-[100] bg-black flex flex-col"><div className="p-4 flex gap-3 items-center"><img src={getVendor(activeStory.vendor_id||activeStory.user_id)?.avatar_url} className="w-8 h-8 rounded-full"/><p className="text-[11px] font-bold">{getVendor(activeStory.vendor_id||activeStory.user_id)?.vendor_name}</p><button onClick={()=>setActiveStory(null)} className="ml-auto">✕</button></div><img src={activeStory.image_url||activeStory.media_url||activeStory.url} className="flex-1 object-contain" alt=""/></div>}
