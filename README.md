@@ -74,3 +74,7 @@ npx firebase-tools deploy --only firestore:rules
 ```
 
 The rules intentionally deny all other Firestore access. Future collections such as `vendors/{vendorId}`, `products/{productId}`, and `orders/{orderId}` need explicit ownership and access rules before the app uses them. Keep order creation, vendor approval, and other privileged transitions behind trusted server logic.
+
+## Supabase messaging
+
+The messaging UI uses Supabase. Apply the SQL migration in `supabase/migrations/20261107144500_add_chat_actions.sql` to the Supabase project before using the per-user Delete Chat and Block User actions. Chat deletion hides the conversation for the signed-in user without deleting shared messages; blocking is account-persistent and prevents new messages between the blocked pair.

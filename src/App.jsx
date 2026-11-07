@@ -133,8 +133,8 @@ export default function App(){
       {tab==='shop'&&<Shop products={products} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike}/>}
       {tab==='search'&&<Search vendors={vendors} fasterShop={fasterShop} products={products} getVendor={getVendor} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}}/>}
       {tab==='vendor'&&<VendorProfile vendor={selectedVendor} currentUser={user} products={products.filter(p=>p.vendor_id===selectedVendor?.id)} stories={stories.filter(s=>(s.vendor_id===selectedVendor?.id||s.user_id===selectedVendor?.id))} onBack={()=>setTab('home')} onStoryClick={openStories} reload={loadAll} followMap={followMap} setFollowMap={setFollowMap} fasterShop={fasterShop} sendNotif={sendNotif} getVendor={getVendor}/>}
-      {tab==='messages'&&<MessagesList user={user} vendors={vendors} fasterShop={fasterShop} profile={profile} onSelect={(v)=>{setSelectedChat(v);setTab('chat')}}/>}
-      {tab==='chat'&&<ChatRoom user={user} vendor={selectedChat} product={selectedProduct} onBack={()=>setTab('messages')} profile={profile}/>}
+      {tab==='messages'&&<MessagesListWithActions user={user} vendors={vendors} fasterShop={fasterShop} profile={profile} onSelect={(v)=>{setSelectedChat(v);setTab('chat')}} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}}/>}
+      {tab==='chat'&&<ChatRoomWithActions user={user} vendor={selectedChat} product={selectedProduct} onBack={()=>setTab('messages')} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}} profile={profile}/>}
       {tab==='cart'&&<div className="p-4"><h2 className="font-black text-[13px]">Cart — Fastershop Store Only</h2>{cart.length===0?<p className="text-[11px] text-zinc-500 mt-6">Empty</p>:cart.map((p,i)=><div key={i} className="bg-zinc-900 p-3 rounded-xl flex gap-3 mt-2"><img src={p.images?.[0]} className="w-16 h-16 rounded-xl object-cover" alt=""/><div><p className="text-[11px] font-bold">{p.title||p.name}</p><p className="text-[10px] text-zinc-400">{p.price}</p></div></div>)}<button className="w-full mt-4 bg-[#39FF14] text-black font-black py-3 rounded-full text-[11px]">Pay with Paystack</button></div>}
       {tab==='profile'&&<Profile user={user} profile={profile} products={products.filter(p=>p.vendor_id===user.id)} reload={loadAll} getVendor={getVendor}/>}
       {tab==='notifications'&&<Notifications notifications={notifications} products={products} getVendor={getVendor} onBack={()=>setTab('home')} onOpenProduct={(p)=>{const v=getVendor(p?.vendor_id);if(v){setSelectedVendor(v);setTab('vendor')}}} onOpenChat={(actorId)=>{const v=getVendor(actorId);if(v){setSelectedChat(v);setTab('chat')}}} onClear={async()=>{await supabase.from('notifications').update({is_read:true}).eq('user_id',user.id);setNotifications(prev=>prev.map(n=>({...n,is_read:true})))}}/>}
@@ -409,19 +409,107 @@ function Settings({user,profile,reload,onBack}){
   </div>
 }
 
-function MessagesList({user,vendors,fasterShop,profile,onSelect}){
-  const [convos,setConvos]=useState([])
-  useEffect(()=>{const load=async()=>{const{data:conv}=await supabase.from('conversations').select('*').or(`buyer_id.eq.${user.id},vendor_id.eq.${user.id}`).order('created_at',{ascending:false});if(!conv){setConvos([]);return}const all=[...vendors];if(fasterShop)all.push(fasterShop);if(profile)all.push(profile);const map={};all.forEach(p=>map[p.id]=p);const enriched=[];for(const c of conv){const otherId=c.buyer_id===user.id?c.vendor_id:c.buyer_id;const {data:last}=await supabase.from('messages').select('*').eq('conversation_id',c.id).order('created_at',{ascending:false}).limit(1).maybeSingle();enriched.push({...c,other:map[otherId]||{vendor_name:'Vendor',id:otherId},last:last||null,unread:last&&last.sender_id!==user.id})}setConvos(enriched)};load()},[user.id,vendors,fasterShop,profile])
-  return <div className="p-4"><h2 className="font-black text-[13px] mb-3">Messages</h2>{convos.length===0?<p className="text-[11px] text-zinc-500 mt-10 text-center">No messages yet — message a vendor from their post.</p>:convos.map(c=><button key={c.id} onClick={()=>onSelect(c.other)} className="w-full bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex gap-3 mb-2 text-left items-center"><img src={c.other?.avatar_url} className="w-10 h-10 rounded-full object-cover bg-zinc-800" alt=""/><div className="flex-1 min-w-0"><div className="flex justify-between items-center"><p className="text-[12px] font-bold">{c.other?.vendor_name}</p>{c.last&&<p className="text-[9px] text-zinc-500">{new Date(c.last.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} • {new Date(c.last.created_at).toLocaleDateString()}</p>}</div><p className={`text-[11px] truncate mt-0.5 ${c.unread?'text-white font-bold':'text-zinc-400'}`}>{c.last?`${c.last.sender_id===user.id?'You: ':''}${c.last.text}`:'No messages yet'}</p></div>{c.unread&&<span className="w-2.5 h-2.5 bg-[#39FF14] rounded-full shrink-0"/>}</button>)}</div>
+function ChatActionsMenu({onDelete,onBlock,onViewProfile,onCancel}){
+  return <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-xl border border-zinc-700 bg-zinc-900 p-1 shadow-xl">
+    <button onClick={onDelete} className="w-full rounded-lg px-3 py-2 text-left text-[11px] hover:bg-zinc-800">Delete Chat</button>
+    <button onClick={onBlock} className="w-full rounded-lg px-3 py-2 text-left text-[11px] hover:bg-zinc-800">Block User</button>
+    <button onClick={onViewProfile} className="w-full rounded-lg px-3 py-2 text-left text-[11px] hover:bg-zinc-800">View Profile</button>
+    <button onClick={onCancel} className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-zinc-400 hover:bg-zinc-800">Cancel</button>
+  </div>
 }
-function ChatRoom({user,vendor,product,onBack,profile}){
-  const [msgs,setMsgs]=useState([]);const [text,setText]=useState('');const [convId,setConvId]=useState(null);const ref=useRef()
-  useEffect(()=>{const init=async()=>{let{data:conv}=await supabase.from('conversations').select('*').or(`and(buyer_id.eq.${user.id},vendor_id.eq.${vendor.id}),and(buyer_id.eq.${vendor.id},vendor_id.eq.${user.id})`).maybeSingle();if(!conv){const{data:newConv}=await supabase.from('conversations').insert({buyer_id:user.id,vendor_id:vendor.id}).select().single();conv=newConv}setConvId(conv.id);const{data:m}=await supabase.from('messages').select('*').eq('conversation_id',conv.id).order('created_at');setMsgs(m||[])};init()},[user.id,vendor.id])
+
+function MessagesListWithActions({user,vendors,fasterShop,profile,onSelect,onViewProfile}){
+  const [convos,setConvos]=useState([])
+  const [openMenu,setOpenMenu]=useState(null)
+  useEffect(()=>{
+    const load=async()=>{
+      const {data:conv,error:convError}=await supabase.from('conversations').select('*').or(`buyer_id.eq.${user.id},vendor_id.eq.${user.id}`).order('created_at',{ascending:false})
+      if(convError){alert(convError.message);return}
+      const [hiddenResult,blockedResult]=await Promise.all([
+        supabase.from('chat_hides').select('conversation_id').eq('user_id',user.id),
+        supabase.from('user_blocks').select('blocked_id').eq('blocker_id',user.id)
+      ])
+      if(hiddenResult.error||blockedResult.error){alert((hiddenResult.error||blockedResult.error).message);return}
+      const hidden=new Set((hiddenResult.data||[]).map(row=>row.conversation_id))
+      const blocked=new Set((blockedResult.data||[]).map(row=>row.blocked_id))
+      const visible=(conv||[]).filter(c=>!hidden.has(c.id)&&!blocked.has(c.buyer_id===user.id?c.vendor_id:c.buyer_id))
+      const all=[...vendors];if(fasterShop)all.push(fasterShop);if(profile)all.push(profile)
+      const map={};all.forEach(p=>map[p.id]=p)
+      const enriched=[]
+      for(const c of visible){
+        const otherId=c.buyer_id===user.id?c.vendor_id:c.buyer_id
+        const {data:last,error:lastError}=await supabase.from('messages').select('*').eq('conversation_id',c.id).order('created_at',{ascending:false}).limit(1).maybeSingle()
+        if(lastError){alert(lastError.message);continue}
+        enriched.push({...c,other:map[otherId]||{vendor_name:'Vendor',id:otherId},last:last||null,unread:last&&last.sender_id!==user.id})
+      }
+      setConvos(enriched)
+    }
+    load()
+  },[user.id,vendors,fasterShop,profile])
+  const hideChat=async(c)=>{
+    if(!confirm('Delete this chat?'))return
+    const {error}=await supabase.from('chat_hides').upsert({user_id:user.id,conversation_id:c.id},{onConflict:'user_id,conversation_id',ignoreDuplicates:true})
+    if(error){alert(error.message);return}
+    setConvos(prev=>prev.filter(item=>item.id!==c.id))
+  }
+  const blockUser=async(c)=>{
+    const {error}=await supabase.from('user_blocks').upsert({blocker_id:user.id,blocked_id:c.other.id},{onConflict:'blocker_id,blocked_id',ignoreDuplicates:true})
+    if(error){alert(error.message);return}
+    setConvos(prev=>prev.filter(item=>item.id!==c.id))
+    const {error:hideError}=await supabase.from('chat_hides').upsert({user_id:user.id,conversation_id:c.id},{onConflict:'user_id,conversation_id',ignoreDuplicates:true})
+    if(hideError){alert(hideError.message);return}
+  }
+  return <div className="p-4"><h2 className="font-black text-[13px] mb-3">Messages</h2>{convos.length===0?<p className="text-[11px] text-zinc-500 mt-10 text-center">No messages yet — message a vendor from their post.</p>:convos.map(c=><div key={c.id} className="relative w-full bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex gap-3 mb-2 items-center"><button onClick={()=>onSelect(c.other)} className="flex flex-1 min-w-0 gap-3 text-left items-center"><img src={c.other?.avatar_url} className="w-10 h-10 rounded-full object-cover bg-zinc-800" alt=""/><div className="flex-1 min-w-0"><div className="flex justify-between items-center"><p className="text-[12px] font-bold">{c.other?.vendor_name}</p>{c.last&&<p className="text-[9px] text-zinc-500">{new Date(c.last.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} • {new Date(c.last.created_at).toLocaleDateString()}</p>}</div><p className={`text-[11px] truncate mt-0.5 ${c.unread?'text-white font-bold':'text-zinc-400'}`}>{c.last?`${c.last.sender_id===user.id?'You: ':''}${c.last.text}`:'No messages yet'}</p></div>{c.unread&&<span className="w-2.5 h-2.5 bg-[#39FF14] rounded-full shrink-0"/>}</button><div className="relative"><button aria-label={`Options for ${c.other?.vendor_name||'chat'}`} onClick={()=>setOpenMenu(openMenu===c.id?null:c.id)} className="w-8 h-8 rounded-full text-lg text-zinc-400 hover:bg-zinc-800">⋯</button>{openMenu===c.id&&<ChatActionsMenu onDelete={()=>{setOpenMenu(null);hideChat(c)}} onBlock={()=>{setOpenMenu(null);blockUser(c)}} onViewProfile={()=>{setOpenMenu(null);onViewProfile(c.other)}} onCancel={()=>setOpenMenu(null)}/>}</div></div>)}</div>
+}
+
+function ChatRoomWithActions({user,vendor,product,onBack,onViewProfile,profile}){
+  const [msgs,setMsgs]=useState([])
+  const [text,setText]=useState('')
+  const [convId,setConvId]=useState(null)
+  const [menuOpen,setMenuOpen]=useState(false)
+  const ref=useRef()
+  useEffect(()=>{const init=async()=>{
+    const {data:blocked,error:blockError}=await supabase.from('user_blocks').select('blocked_id').eq('blocker_id',user.id).eq('blocked_id',vendor.id).maybeSingle()
+    if(blockError){alert(blockError.message);onBack();return}
+    if(blocked){alert('You have blocked this user.');onBack();return}
+    let{data:conv,error:convError}=await supabase.from('conversations').select('*').or(`and(buyer_id.eq.${user.id},vendor_id.eq.${vendor.id}),and(buyer_id.eq.${vendor.id},vendor_id.eq.${user.id})`).maybeSingle()
+    if(convError){alert(convError.message);return}
+    if(!conv){const{data:newConv,error:newConvError}=await supabase.from('conversations').insert({buyer_id:user.id,vendor_id:vendor.id}).select().single();if(newConvError){alert(newConvError.message);return}conv=newConv}
+    const {error:unhideError}=await supabase.from('chat_hides').delete().eq('user_id',user.id).eq('conversation_id',conv.id)
+    if(unhideError){alert(unhideError.message);return}
+    setConvId(conv.id)
+    const{data:m,error:messagesError}=await supabase.from('messages').select('*').eq('conversation_id',conv.id).order('created_at')
+    if(messagesError){alert(messagesError.message);return}
+    setMsgs(m||[])
+  };init()},[user.id,vendor.id])
   useEffect(()=>{if(!convId)return;const ch=supabase.channel(`chat-${convId}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`conversation_id=eq.${convId}`},p=>setMsgs(prev=>[...prev,p.new])).subscribe();return()=>supabase.removeChannel(ch)},[convId])
   useEffect(()=>{ref.current?.scrollIntoView({behavior:'smooth'})},[msgs])
-  const send=async()=>{if(!text.trim()||!convId)return;const msgText=text;await supabase.from('messages').insert({conversation_id:convId,sender_id:user.id,text:msgText});setText('');if(vendor.id!==user.id){try{await supabase.from('notifications').insert({user_id:vendor.id,actor_id:user.id,actor_name:profile?.vendor_name||user.email?.split('@')[0]||'User',type:'message',title:'New message',message:msgText})}catch(e){}}}
-  return <div className="flex flex-col h-[calc(100vh-112px)]"><div className="p-4 border-b border-zinc-900 flex gap-3"><button onClick={onBack}>Back</button><p className="text-[12px] font-bold">{vendor?.vendor_name}</p></div>{product&&<div className="p-3 bg-zinc-900 border-b border-zinc-800 flex gap-3"><img src={product.images?.[0]} className="w-12 h-12 rounded-lg object-cover"/><div><p className="text-[11px] font-bold">{product.title}</p><p className="text-[10px] text-zinc-400">{product.price}</p></div></div>}<div className="flex-1 overflow-y-auto p-4 space-y-3">{msgs.map(m=><div key={m.id} className={`max-w-[75%] ${m.sender_id===user.id?'ml-auto':''}`}><div className={`p-3 rounded-2xl text-[11px] ${m.sender_id===user.id?'bg-[#39FF14] text-black':'bg-zinc-900 border border-zinc-800'}`}>{m.text}</div><p className={`text-[9px] text-zinc-500 mt-1 ${m.sender_id===user.id?'text-right':''}`}>{new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} • {new Date(m.created_at).toLocaleDateString()}</p></div>)}<div ref={ref}></div></div><div className="p-3 border-t border-zinc-900 flex gap-2"><input value={text} onChange={e=>setText(e.target.value)} placeholder="Message..." className="flex-1 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-3 text-[11px]" onKeyDown={e=>e.key==='Enter'&&send()}/><button onClick={send} className="bg-white text-black px-5 rounded-full text-[11px] font-bold">Send</button></div></div>
+  const send=async()=>{
+    if(!text.trim()||!convId)return
+    const msgText=text
+    const {error}=await supabase.from('messages').insert({conversation_id:convId,sender_id:user.id,text:msgText})
+    if(error){alert(error.message);return}
+    setText('')
+    if(vendor.id!==user.id){try{await supabase.from('notifications').insert({user_id:vendor.id,actor_id:user.id,actor_name:profile?.vendor_name||user.email?.split('@')[0]||'User',type:'message',title:'New message',message:msgText})}catch(e){}}
+  }
+  const deleteChat=async()=>{
+    if(!confirm('Delete this chat?'))return
+    const {error}=await supabase.from('chat_hides').upsert({user_id:user.id,conversation_id:convId},{onConflict:'user_id,conversation_id',ignoreDuplicates:true})
+    if(error){alert(error.message);return}
+    onBack()
+  }
+  const blockUser=async()=>{
+    const {error}=await supabase.from('user_blocks').upsert({blocker_id:user.id,blocked_id:vendor.id},{onConflict:'blocker_id,blocked_id',ignoreDuplicates:true})
+    if(error){alert(error.message);return}
+    if(convId){
+      const {error:hideError}=await supabase.from('chat_hides').upsert({user_id:user.id,conversation_id:convId},{onConflict:'user_id,conversation_id',ignoreDuplicates:true})
+      if(hideError){alert(hideError.message);onBack();return}
+    }
+    onBack()
+  }
+  return <div className="flex flex-col h-[calc(100vh-112px)]"><div className="p-4 border-b border-zinc-900 flex items-center gap-3"><button onClick={onBack}>Back</button><button onClick={()=>onViewProfile(vendor)} className="text-[12px] font-bold">{vendor?.vendor_name}</button><div className="relative ml-auto"><button aria-label="Chat options" onClick={()=>setMenuOpen(!menuOpen)} className="w-8 h-8 rounded-full text-lg text-zinc-400 hover:bg-zinc-800">⋯</button>{menuOpen&&<ChatActionsMenu onDelete={deleteChat} onBlock={blockUser} onViewProfile={()=>{setMenuOpen(false);onViewProfile(vendor)}} onCancel={()=>setMenuOpen(false)}/>}</div></div>{product&&<div className="p-3 bg-zinc-900 border-b border-zinc-800 flex gap-3"><img src={product.images?.[0]} className="w-12 h-12 rounded-lg object-cover" alt=""/><div><p className="text-[11px] font-bold">{product.title}</p><p className="text-[10px] text-zinc-400">{product.price}</p></div></div>}<div className="flex-1 overflow-y-auto p-4 space-y-3">{msgs.map(m=><div key={m.id} className={`max-w-[75%] ${m.sender_id===user.id?'ml-auto':''}`}><div className={`p-3 rounded-2xl text-[11px] ${m.sender_id===user.id?'bg-[#39FF14] text-black':'bg-zinc-900 border border-zinc-800'}`}>{m.text}</div><p className={`text-[9px] text-zinc-500 mt-1 ${m.sender_id===user.id?'text-right':''}`}>{new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} • {new Date(m.created_at).toLocaleDateString()}</p></div>)}<div ref={ref}></div></div><div className="p-3 border-t border-zinc-900 flex gap-2"><input value={text} onChange={e=>setText(e.target.value)} placeholder="Message..." className="flex-1 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-3 text-[11px]" onKeyDown={e=>e.key==='Enter'&&send()}/><button onClick={send} className="bg-white text-black px-5 rounded-full text-[11px] font-bold">Send</button></div></div>
 }
+
 function AuthForm(){
   const [email,setEmail]=useState('');const [pass,setPass]=useState('');const [mode,setMode]=useState('login')
   const handle=async(e)=>{e.preventDefault();try{if(mode==='signup'){const{error}=await supabase.auth.signUp({email,password:pass});if(error)throw error;alert('Created! Login now');setMode('login')}else{const{error}=await supabase.auth.signInWithPassword({email,password:pass});if(error)throw error}}catch(err){alert(err.message)}}
