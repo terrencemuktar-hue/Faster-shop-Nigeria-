@@ -1,6 +1,33 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 const CATS=['All','Men','Hoodies','Caps','Perfumes','Shoes','Bags']
+
+function useFollowerCounts(userId){
+  const [counts,setCounts]=useState({followers:0,following:0})
+  const refresh=useCallback(async()=>{
+    if(!userId)return
+    const [followersResult,followingResult]=await Promise.all([
+      supabase.from('vendor_followers').select('*',{count:'exact',head:true}).eq('vendor_id',userId),
+      supabase.from('vendor_followers').select('*',{count:'exact',head:true}).eq('follower_id',userId)
+    ])
+    if(followersResult.error||followingResult.error){
+      console.error('Failed to load vendor follower counts',followersResult.error||followingResult.error)
+      return
+    }
+    setCounts({followers:followersResult.count??0,following:followingResult.count??0})
+  },[userId])
+  useEffect(()=>{
+    if(!userId)return
+    const channel=supabase.channel(`vendor-followers-${userId}`)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'vendor_followers',filter:`vendor_id=eq.${userId}`},refresh)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'vendor_followers',filter:`follower_id=eq.${userId}`},refresh)
+      .on('postgres_changes',{event:'DELETE',schema:'public',table:'vendor_followers'},refresh)
+      .subscribe()
+    refresh()
+    return()=>supabase.removeChannel(channel)
+  },[userId,refresh])
+  return {...counts,refresh}
+}
 
 export default function App(){
   const [user,setUser]=useState(null)
@@ -229,8 +256,7 @@ function Shop({products,selectedCategory,setSelectedCategory,getVendor,user,like
 }
 
 function VendorProfile({vendor,currentUser,products,stories,onBack,onStoryClick,reload,followMap,setFollowMap,fasterShop,sendNotif,getVendor}){
-  const [followers,setFollowers]=useState(0)
-  const [following,setFollowing]=useState(0)
+  const {followers,following,refresh:refreshFollowCounts}=useFollowerCounts(vendor?.id)
   const [editingBio,setEditingBio]=useState(false)
   const [bioText,setBioText]=useState(vendor?.bio||'')
   const [selectedPost,setSelectedPost]=useState(null)
@@ -238,8 +264,17 @@ function VendorProfile({vendor,currentUser,products,stories,onBack,onStoryClick,
   const [showFollow,setShowFollow]=useState(null)
   const [followIds,setFollowIds]=useState([])
   const isOwn=currentUser?.id===vendor?.id
-  useEffect(()=>{const load=async()=>{const {count:f1}=await supabase.from('follows').select('*',{count:'exact',head:true}).eq('following_id',vendor?.id);const {count:f2}=await supabase.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',vendor?.id);setFollowers(f1||0);setFollowing(f2||0);setBioText(vendor?.bio||'')};load()},[vendor?.id])
-  const toggleFollow=async()=>{const isF=followMap[vendor.id]; if(isF){await supabase.from('follows').delete().eq('follower_id',currentUser.id).eq('following_id',vendor.id);const nm={...followMap};delete nm[vendor.id];setFollowMap(nm);setFollowers(f=>f-1)}else{await supabase.from('follows').insert({follower_id:currentUser.id,following_id:vendor.id});setFollowMap({...followMap,[vendor.id]:true});setFollowers(f=>f+1);if(sendNotif)sendNotif(vendor.id,'follow','New follower','started following you',null)}}
+  useEffect(()=>{setBioText(vendor?.bio||'')},[vendor?.id,vendor?.bio])
+  const toggleFollow=async()=>{
+    const isF=followMap[vendor.id]
+    const {error}=isF
+      ?await supabase.from('follows').delete().eq('follower_id',currentUser.id).eq('following_id',vendor.id)
+      :await supabase.from('follows').insert({follower_id:currentUser.id,following_id:vendor.id})
+    if(error)return alert(error.message)
+    if(isF){const nm={...followMap};delete nm[vendor.id];setFollowMap(nm)}
+    else{setFollowMap({...followMap,[vendor.id]:true});if(sendNotif)sendNotif(vendor.id,'follow','New follower','started following you',null)}
+    await refreshFollowCounts()
+  }
   const openFollowList=async(type)=>{const col=type==='followers'?'following_id':'follower_id';const valCol=type==='followers'?'follower_id':'following_id';const {data}=await supabase.from('follows').select(valCol).eq(col,vendor.id);setFollowIds((data||[]).map(r=>r[valCol]));setShowFollow(type)}
   const saveBio=async()=>{await supabase.from('profiles').update({bio:bioText}).eq('id',vendor.id);await reload();setEditingBio(false)}
   const changeAvatar=async()=>{
@@ -276,8 +311,7 @@ function Profile({user,profile,products,reload,getVendor}){
   const [files,setFiles]=useState([])
   const [previews,setPreviews]=useState([])
   const [uploading,setUploading]=useState(false)
-  const [followers,setFollowers]=useState(0)
-  const [following,setFollowing]=useState(0)
+  const {followers,following}=useFollowerCounts(user?.id)
   const [editingBio,setEditingBio]=useState(false)
   const [bioText,setBioText]=useState(profile?.bio||'')
   const [selectedPost,setSelectedPost]=useState(null)
@@ -285,7 +319,7 @@ function Profile({user,profile,products,reload,getVendor}){
   const [showFollow,setShowFollow]=useState(null)
   const [followIds,setFollowIds]=useState([])
   const storyInputRef=useRef(null)
-  useEffect(()=>{setBioText(profile?.bio||'');const load=async()=>{const {count:f1}=await supabase.from('follows').select('*',{count:'exact',head:true}).eq('following_id',user.id);const {count:f2}=await supabase.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',user.id);setFollowers(f1||0);setFollowing(f2||0)};load()},[profile])
+  useEffect(()=>{setBioText(profile?.bio||'')},[profile])
   const handleFiles=(e)=>{const s=Array.from(e.target.files||[]).slice(0,10);setFiles(s);setPreviews(s.map(f=>URL.createObjectURL(f)))}
   const ensureProfile=async()=>{const {data,error}=await supabase.from('profiles').upsert({id:user.id,email:user.email,is_vendor:true,vendor_name:user.email.split('@')[0]},{onConflict:'id'}).select().single(); if(error)throw error; return data}
   const openFollowList=async(type)=>{const col=type==='followers'?'following_id':'follower_id';const valCol=type==='followers'?'follower_id':'following_id';const {data}=await supabase.from('follows').select(valCol).eq(col,user.id);setFollowIds((data||[]).map(r=>r[valCol]));setShowFollow(type)}
