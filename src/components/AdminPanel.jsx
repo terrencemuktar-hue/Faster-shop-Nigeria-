@@ -1,3 +1,4 @@
+import { supabase } from '../lib/supabase';
 import { useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
@@ -37,6 +38,20 @@ export default function AdminPanel({ user }) {
         <input ref={dateRef} type="date" style={{ padding: 10, borderRadius: 8, color: '#000', background: '#fff' }} />
         <button type="submit" style={{ padding: 12, background: '#FFD700', fontWeight: 'bold', borderRadius: 8 }}>Add Event</button>
       </form>
+      <h3 style={{ marginTop: 20 }}>🔥 Add to Faster Finds</h3>
+<input placeholder="Product title" id="ff-title" style={{ display: 'block', width: '100%', padding: 10, marginBottom: 8 }} />
+<input placeholder="Vendor name" id="ff-vendor" style={{ display: 'block', width: '100%', padding: 10, marginBottom: 8 }} />
+<input placeholder="Price e.g 25000" id="ff-price" type="number" style={{ display: 'block', width: '100%', padding: 10, marginBottom: 8 }} />
+<input placeholder="Image URL (paste link)" id="ff-image" style={{ display: 'block', width: '100%', padding: 10, marginBottom: 8 }} />
+<button onClick={async () => {
+  const title = document.getElementById('ff-title').value;
+  const vendor_name = document.getElementById('ff-vendor').value;
+  const price = document.getElementById('ff-price').value;
+  const image_url = document.getElementById('ff-image').value;
+  if (!title) return alert('Add title');
+  const { error } = await supabase.from('faster_finds').insert([{ title, vendor_name, price, image_url }]);
+  if (error) alert(error.message); else alert('✅ Added to Faster Finds');
+}} style={{ padding: 10, width: '100%' }}>Add to Faster Finds</button>
       {msg && <p>{msg}</p>}
     </div>
   );
