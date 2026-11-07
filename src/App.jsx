@@ -1,3 +1,4 @@
+import AdminPanel from './components/AdminPanel';
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 const CATS=['All','Men','Hoodies','Caps','Perfumes','Shoes','Bags']
@@ -139,6 +140,7 @@ export default function App(){
       {tab==='profile'&&<Profile user={user} profile={profile} products={products.filter(p=>p.vendor_id===user.id)} reload={loadAll} getVendor={getVendor}/>}
       {tab==='notifications'&&<Notifications notifications={notifications} products={products} getVendor={getVendor} onBack={()=>setTab('home')} onOpenProduct={(p)=>{const v=getVendor(p?.vendor_id);if(v){setSelectedVendor(v);setTab('vendor')}}} onOpenChat={(actorId)=>{const v=getVendor(actorId);if(v){setSelectedChat(v);setTab('chat')}}} onClear={async()=>{await supabase.from('notifications').update({is_read:true}).eq('user_id',user.id);setNotifications(prev=>prev.map(n=>({...n,is_read:true})))}}/>}
       {tab==='settings'&&<Settings user={user} profile={profile} reload={loadAll} onBack={()=>setTab('profile')}/>}
+      {tab==='profile' && <AdminPanel user={user} />} 
 
       <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-zinc-900 flex justify-around py-3 text-[10px]">
         <button onClick={()=>setTab('home')} className={tab==='home'?'text-white font-black':'text-zinc-500'}>Home</button>
