@@ -1,4 +1,4 @@
-const [userType, setUserType] = useState<'buyer' | 'vendor'>('buyer');
+const [userType, setUserType] = useState<'buyer' | 'vendor'>('buyer'); 
 import React, { useState } from 'react';
 import { 
   createUserWithEmailAndPassword, 
