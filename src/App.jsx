@@ -115,6 +115,7 @@ export default function App(){
     setProducts(prev=>prev.filter(p=>p.id!==pid))
   }
   const openStories=(list)=>{if(!list||!list.length)return;setActiveStories(list);setActiveStoryIdx(0)}
+  const handleDM=(v,p)=>{ if(!v) return; if(v.id===user.id){ alert("You can't message yourself"); return } setSelectedChat(v); setSelectedProduct(p); setTab('chat') }
   if(!user) return (
     <div className="relative min-h-screen bg-black text-white overflow-hidden">
       <ClothesRain />
@@ -134,11 +135,11 @@ export default function App(){
         <button onClick={()=>setTab('settings')} className="w-9 h-9 flex items-center justify-center text-[18px]">⚙️</button>
       </div>
       {activeStories&&<StoryViewer stories={activeStories} idx={activeStoryIdx} setIdx={setActiveStoryIdx} onClose={()=>setActiveStories(null)} getVendor={getVendor}/>}
-      {tab==='home'&&<Home products={products} stories={stories} fasterShop={fasterShop} vendors={vendors} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}} onDM={(v,p)=>{setSelectedChat(v);setSelectedProduct(p);setTab('chat')}} onStoryClick={openStories} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike} comments={comments} addComment={addComment} deletePost={deletePost} vendorsList={vendors} profile={profile}/>}
+      {tab==='home'&&<Home products={products} stories={stories} fasterShop={fasterShop} vendors={vendors} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}} onDM={handleDM} onStoryClick={openStories} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike} comments={comments} addComment={addComment} deletePost={deletePost} vendorsList={vendors} profile={profile}/>}
       {tab==='shop'&&<Shop products={products} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike}/>}
       {tab==='search'&&<><Search vendors={vendors} fasterShop={fasterShop} products={products} getVendor={getVendor} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}}/><FasterFinds /><EventsList /></>}
       {tab==='vendor'&&<VendorProfile vendor={selectedVendor} currentUser={user} products={products.filter(p=>p.vendor_id===selectedVendor?.id)} stories={stories.filter(s=>(s.vendor_id===selectedVendor?.id||s.user_id===selectedVendor?.id))} onBack={()=>setTab('home')} onStoryClick={openStories} reload={loadAll} followMap={followMap} setFollowMap={setFollowMap} fasterShop={fasterShop} sendNotif={sendNotif} getVendor={getVendor}/>}
-      {tab==='messages'&&<MessagesListWithActions user={user} vendors={vendors} fasterShop={fasterShop} profile={profile} onSelect={(v)=>{setSelectedChat(v);setTab('chat')}} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}}/>}
+      {tab==='messages'&&<MessagesListWithActions user={user} vendors={vendors} fasterShop={fasterShop} profile={profile} onSelect={(v)=>{if(v.id===user.id) return; setSelectedChat(v);setTab('chat')}} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}}/>}
       {tab==='chat'&&<ChatRoomWithActions user={user} vendor={selectedChat} product={selectedProduct} onBack={()=>setTab('messages')} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}} profile={profile}/>}
       {tab==='cart'&&<div className="p-4"><h2 className="font-black text-[13px]">Cart — Fastershop Store Only</h2>{cart.length===0?<p className="text-[11px] text-zinc-500 mt-6">Empty</p>:cart.map((p,i)=><div key={i} className="bg-zinc-900 p-3 rounded-xl flex gap-3 mt-2"><img src={p.images?.[0]} className="w-16 h-16 rounded-xl object-cover" alt="" /><div><p className="text-[11px] font-bold">{p.title||p.name}</p><p className="text-[10px] text-zinc-400">{p.price}</p></div></div>)}<button className="w-full mt-4 bg-[#39FF14] text-black font-black py-3 rounded-full text-[11px]">Pay with Paystack</button></div>}
       {tab==='profile'&&<>
@@ -155,7 +156,7 @@ export default function App(){
           <AdminPanel user={user} profile={profile} />
         </>}
       </>}
-      {tab==='notifications'&&<Notifications notifications={notifications} products={products} getVendor={getVendor} onBack={()=>setTab('home')} onOpenProduct={(p)=>{const v=getVendor(p?.vendor_id);if(v){setSelectedVendor(v);setTab('vendor')}}} onOpenChat={(actorId)=>{const v=getVendor(actorId);if(v){setSelectedChat(v);setTab('chat')}}} onClear={async()=>{await supabase.from('notifications').update({is_read:true}).eq('user_id',user.id);setNotifications(prev=>prev.map(n=>({...n,is_read:true})))}}/>}
+      {tab==='notifications'&&<Notifications notifications={notifications} products={products} getVendor={getVendor} onBack={()=>setTab('home')} onOpenProduct={(p)=>{const v=getVendor(p?.vendor_id);if(v){setSelectedVendor(v);setTab('vendor')}}} onOpenChat={(actorId)=>{const v=getVendor(actorId);if(v && v.id!==user.id){setSelectedChat(v);setTab('chat')}}} onClear={async()=>{await supabase.from('notifications').update({is_read:true}).eq('user_id',user.id);setNotifications(prev=>prev.map(n=>({...n,is_read:true})))}}/>}
       {tab==='settings'&&<Settings user={user} profile={profile} reload={loadAll} onBack={()=>setTab('profile')}/>}
       <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-zinc-900 flex justify-around py-3 text-[10px]">
         <button onClick={()=>setTab('home')} className={tab==='home'?'text-white font-black':'text-zinc-500'}>Home</button>
@@ -285,7 +286,7 @@ function PostCard({p,v,user,likes,toggleLike,comments,addComment,deletePost,onDM
     <div className="p-3 flex gap-2 items-center"><img src={v?.avatar_url||``} className="w-8 h-8 rounded-full object-cover" alt="" /><p className="text-[11px] font-bold">{v?.vendor_name||'Vendor'}</p><span className="ml-auto text-[9px] bg-zinc-800 px-2 py-1 rounded-full">{imgs.length} slides</span>{isOwn&&<button onClick={()=>deletePost(p.id)} className="text-[12px] px-2">🗑️</button>}</div>
     <PostSlider images={imgs}/>
     <div className="p-3">
-      <div className="flex gap-4 items-center"><button onClick={()=>toggleLike(p.id)} className="text-[16px]">{likes[p.id]?'❤️':'🤍'}</button><button onClick={()=>setShowComments(!showComments)} className="text-[16px]">💬 <span className="text-[11px]">{count}</span></button><button onClick={()=>onDM(v,p)} className="ml-auto bg-white text-black text-[9px] px-3 py-2 rounded-full font-bold">Message</button></div>
+      <div className="flex gap-4 items-center"><button onClick={()=>toggleLike(p.id)} className="text-[16px]">{likes[p.id]?'❤️':'🤍'}</button><button onClick={()=>setShowComments(!showComments)} className="text-[16px]">💬 <span className="text-[11px]">{count}</span></button>{!isOwn&&<button onClick={()=>onDM(v,p)} className="ml-auto bg-white text-black text-[9px] px-3 py-2 rounded-full font-bold">Message</button>}</div>
       <p className="text-[11px] font-bold mt-2">{p.title||p.name}</p><p className="text-[10px] text-zinc-400">₦{p.price} • {p.category}{p.size?` • Size: ${p.size}`:''}</p>
       {p.description&&<p className="text-[10px] text-zinc-300 mt-1 whitespace-pre-wrap">{p.description}</p>}
       {showComments&&<div className="mt-3 space-y-2 border-t border-zinc-800 pt-3">{(comments[p.id]||[]).map(c=><div key={c.id} className="flex gap-2"><p className="text-[10px] font-bold shrink-0">{getName(c.user_id)}</p><p className="text-[10px] text-zinc-300">{c.text}</p></div>)}{(!comments[p.id]||comments[p.id].length===0)&&<p className="text-[10px] text-zinc-500">No comments yet — be first</p>}<div className="flex gap-2"><input value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Add a comment..." className="flex-1 bg-zinc-800 rounded-full px-3 py-2 text-[10px]" /><button onClick={()=>{addComment(p.id,commentText);setCommentText('')}} className="bg-white text-black px-3 rounded-full text-[10px] font-bold">Post</button></div></div>}
@@ -507,8 +508,9 @@ function ChatActionsMenu({onDelete,onBlock,onViewProfile,onCancel}){
 function MessagesListWithActions({user,vendors,fasterShop,profile,onSelect,onViewProfile}){
   const [convos,setConvos]=useState([])
   const [openMenu,setOpenMenu]=useState(null)
+  const [q,setQ]=useState('')
   const loadConvos=async()=>{
-    const {data:conv,error:convError}=await supabase.from('conversations').select('*').or(`buyer_id.eq.${user.id},vendor_id.eq.${user.id}`).order('created_at',{ascending:false})
+    const {data:conv, error:convError}=await supabase.from('conversations').select('*').or(`buyer_id.eq.${user.id},vendor_id.eq.${user.id}`).order('created_at',{ascending:false})
     if(convError){alert(convError.message);return}
     const [hiddenResult,blockedResult]=await Promise.all([
       supabase.from('chat_hides').select('conversation_id').eq('user_id',user.id),
@@ -516,12 +518,20 @@ function MessagesListWithActions({user,vendors,fasterShop,profile,onSelect,onVie
     ])
     const hidden=new Set((hiddenResult.data||[]).map(row=>row.conversation_id))
     const blocked=new Set((blockedResult.data||[]).map(row=>row.blocked_id))
-    const visible=(conv||[]).filter(c=>!hidden.has(c.id)&&!blocked.has(c.buyer_id===user.id?c.vendor_id:c.buyer_id))
+    const visible=(conv||[]).filter(c=>{
+      if(c.buyer_id===c.vendor_id) return false
+      if(hidden.has(c.id)) return false
+      const otherId = c.buyer_id===user.id ? c.vendor_id : c.buyer_id
+      if(otherId===user.id) return false
+      if(blocked.has(otherId)) return false
+      return true
+    })
     const all=[...vendors];if(fasterShop)all.push(fasterShop);if(profile)all.push(profile)
     const map={};all.forEach(p=>map[p.id]=p)
     const enriched=[]
     for(const c of visible){
       const otherId=c.buyer_id===user.id?c.vendor_id:c.buyer_id
+      if(otherId===user.id) continue
       const {data:last}=await supabase.from('messages').select('*').eq('conversation_id',c.id).order('created_at',{ascending:false}).limit(1).maybeSingle()
       enriched.push({...c,other:map[otherId]||{vendor_name:'Vendor',id:otherId},last:last||null,unread:last&&last.sender_id!==user.id})
     }
@@ -540,9 +550,20 @@ function MessagesListWithActions({user,vendors,fasterShop,profile,onSelect,onVie
     setConvos(prev=>prev.filter(item=>item.id!==c.id))
     await supabase.from('chat_hides').upsert({user_id:user.id,conversation_id:c.id},{onConflict:'user_id,conversation_id',ignoreDuplicates:true})
   }
-  return <div className="p-4"><h2 className="font-black text-[13px] mb-3">Messages</h2>{convos.length===0?<div className="bg-zinc-900 border border-zinc-800 rounded-[24px] p-6 text-center"><p className="text-[12px] font-bold">No messages yet</p><p className="text-[11px] text-zinc-500 mt-1">Tap Message on any product to start a chat.</p></div>:convos.map(c=><div key={c.id} className="relative w-full bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex gap-3 mb-2 items-center"><button onClick={()=>onSelect(c.other)} className="flex flex-1 min-w-0 gap-3 text-left items-center"><img src={c.other?.avatar_url||''} className="w-10 h-10 rounded-full object-cover bg-zinc-800" alt="" /><div className="min-w-0 flex-1"><p className="text-[12px] font-bold truncate">{c.other?.vendor_name||'Vendor'}</p><p className="text-[11px] text-zinc-400 truncate">{c.last?.text||'Start chatting'}</p></div>{c.unread&&<span className="w-2 h-2 bg-[#39FF14] rounded-full shrink-0" />}</button><button onClick={()=>setOpenMenu(openMenu===c.id?null:c.id)} className="text-zinc-400 px-2">⋮</button>{openMenu===c.id&&<ChatActionsMenu onDelete={()=>{setOpenMenu(null);hideChat(c)}} onBlock={()=>{setOpenMenu(null);blockUser(c)}} onViewProfile={()=>{setOpenMenu(null);onViewProfile(c.other)}} onCancel={()=>setOpenMenu(null)} />}</div>)}
-  <p className="text-[12px] font-black mt-4 mb-2">All Vendors</p>
-  {[...vendors, ...(fasterShop?[fasterShop]:[])].map(v=><button key={v.id} onClick={()=>onSelect(v)} className="w-full bg-zinc-900 border border-zinc-800 p-3 rounded-2xl flex gap-3 items-center mb-2 text-left"><img src={v.avatar_url||''} className="w-10 h-10 rounded-full object-cover bg-zinc-800" alt="" /><p className="flex-1 text-[12px] font-bold truncate">{v.vendor_name}</p><span className="text-[11px] text-[#39FF14] font-bold">Message →</span></button>)}
+  const query=q.trim().toLowerCase()
+  const filtered=convos.filter(c=>{
+    if(!query) return true
+    return (c.other?.vendor_name||'').toLowerCase().includes(query) || (c.last?.text||'').toLowerCase().includes(query)
+  })
+  return <div className="p-4">
+    <h2 className="font-black text-[13px] mb-1">Messages</h2>
+    <p className="text-[10px] font-black tracking-widest text-zinc-500 mb-3">CHATS ({convos.length})</p>
+    <div className="relative mb-3">
+      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[14px]">🔍</span>
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search chats..." className="w-full bg-zinc-900 border border-zinc-800 rounded-full pl-10 pr-9 py-3 text-[12px] outline-none focus:border-[#39FF14]" />
+      {q&&<button onClick={()=>setQ('')} className="absolute right-3 top-1/2 -translate-y-1/2 bg-zinc-800 w-6 h-6 rounded-full text-[11px]">✕</button>}
+    </div>
+    {filtered.length===0?<div className="bg-zinc-900 border border-zinc-800 rounded-[24px] p-6 text-center"><p className="text-[12px] font-bold">{query ? `No chats for "${q}"` : 'No chats yet'}</p><p className="text-[11px] text-zinc-500 mt-1">{query ? 'Try another name or message.' : 'Tap Message on any product to start a chat. Your chats will show here.'}</p></div>:filtered.map(c=><div key={c.id} className="relative w-full bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex gap-3 mb-2 items-center"><button onClick={()=>onSelect(c.other)} className="flex flex-1 min-w-0 gap-3 text-left items-center"><img src={c.other?.avatar_url||''} className="w-10 h-10 rounded-full object-cover bg-zinc-800" alt="" /><div className="min-w-0 flex-1"><p className="text-[12px] font-bold truncate">{c.other?.vendor_name||'Vendor'}</p><p className="text-[11px] text-zinc-400 truncate">{c.last?.text||'Start chatting'}</p></div>{c.unread&&<span className="w-2 h-2 bg-[#39FF14] rounded-full shrink-0" />}</button><button onClick={()=>setOpenMenu(openMenu===c.id?null:c.id)} className="text-zinc-400 px-2">⋮</button>{openMenu===c.id&&<ChatActionsMenu onDelete={()=>{setOpenMenu(null);hideChat(c)}} onBlock={()=>{setOpenMenu(null);blockUser(c)}} onViewProfile={()=>{setOpenMenu(null);onViewProfile(c.other)}} onCancel={()=>setOpenMenu(null)} />}</div>)}
   </div>
 }
 
@@ -551,8 +572,10 @@ function ChatRoomWithActions({user,vendor,product,onBack,onViewProfile,profile})
   const [text,setText]=useState('')
   const [convId,setConvId]=useState(null)
   const [showMenu,setShowMenu]=useState(false)
+  const isSelf = vendor && vendor.id===user.id
   useEffect(()=>{
     if(!vendor) return
+    if(isSelf) return
     let channel = null
     const load=async()=>{
       let {data:conv} = await supabase.from('conversations').select('*').or(`and(buyer_id.eq.${user.id},vendor_id.eq.${vendor.id}),and(buyer_id.eq.${vendor.id},vendor_id.eq.${user.id})`).maybeSingle()
@@ -574,8 +597,9 @@ function ChatRoomWithActions({user,vendor,product,onBack,onViewProfile,profile})
     }
     load()
     return ()=>{ if(channel) supabase.removeChannel(channel) }
-  },[vendor?.id,user.id])
+  },[vendor?.id,user.id,isSelf])
   const send=async()=>{
+    if(isSelf) return
     if(!text.trim()||!convId) return
     const toSend = text.trim()
     setText('')
@@ -584,6 +608,7 @@ function ChatRoomWithActions({user,vendor,product,onBack,onViewProfile,profile})
     if(data) setMessages(p=> p.some(m=>m.id===data.id) ? p : [...p,data])
   }
   if(!vendor) return <div className="p-4"><button onClick={onBack}>Back</button><p className="text-[11px] text-zinc-500 mt-4">No chat selected</p></div>
+  if(isSelf) return <div className="p-4"><button onClick={onBack}>← Back</button><div className="bg-zinc-900 border border-zinc-800 rounded-[24px] p-6 text-center mt-10"><p className="text-[12px] font-bold">You can't message yourself</p><p className="text-[11px] text-zinc-500 mt-1">This is your own shop. Message other vendors.</p><button onClick={onBack} className="mt-4 bg-white text-black px-5 py-2.5 rounded-full text-[11px] font-black">Back to Chats</button></div></div>
   return <div className="flex flex-col h-[70vh] p-4">
     <div className="flex items-center gap-3 pb-3 border-b border-zinc-900">
       <button onClick={onBack}>←</button>
