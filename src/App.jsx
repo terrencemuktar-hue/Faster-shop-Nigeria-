@@ -3,6 +3,7 @@ import FasterFinds from './components/FasterFinds';
 import AdminPanel from './components/AdminPanel';
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './lib/supabase'
+import ClothesRain from "./components/ClothesRain";
 const CATS=['All','Men','Hoodies','Caps','Perfumes','Shoes','Bags']
 
 // FASTER SHOP ONLY - ADMIN
@@ -119,7 +120,18 @@ export default function App(){
   }
   const openStories=(list)=>{if(!list||!list.length)return;setActiveStories(list);setActiveStoryIdx(0)}
 
-  if(!user)return <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6"><div className="w-12 h-12 bg-white text-black font-black flex items-center justify-center rounded-xl">F</div><h1 className="font-black mt-3">FASTER SHOP</h1><AuthForm/></div>
+  // ===== CRAZY AUTH - CLOTHES RAINING FROM ROOF =====
+  if(!user) return (
+    <div className="relative min-h-screen bg-black text-white overflow-hidden">
+      <ClothesRain />
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6 py-10">
+        <div className="w-12 h-12 bg-white text-black font-black flex items-center justify-center rounded-xl">F</div>
+        <h1 className="font-black mt-3 tracking-widest">FASTER SHOP</h1>
+        <p className="text-[11px] text-zinc-300 mt-1 mb-4">Lagos fashion is raining 👕👗🧢</p>
+        <AuthForm/>
+      </div>
+    </div>
+  )
 
   return(
     <div className="min-h-screen bg-black text-white pb-20">
@@ -134,7 +146,6 @@ export default function App(){
       {tab==='home'&&<Home products={products} stories={stories} fasterShop={fasterShop} vendors={vendors} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}} onDM={(v,p)=>{setSelectedChat(v);setSelectedProduct(p);setTab('chat')}} onStoryClick={openStories} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike} comments={comments} addComment={addComment} deletePost={deletePost} vendorsList={vendors} profile={profile}/>}
       {tab==='shop'&&<Shop products={products} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike}/>}
 
-      {/* FIXED SEARCH: ONE block only - Search + FasterFinds + Events together */}
       {tab==='search'&&<>
         <Search vendors={vendors} fasterShop={fasterShop} products={products} getVendor={getVendor} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}}/>
         <FasterFinds />
@@ -146,7 +157,6 @@ export default function App(){
       {tab==='chat'&&<ChatRoomWithActions user={user} vendor={selectedChat} product={selectedProduct} onBack={()=>setTab('messages')} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}} profile={profile}/>}
       {tab==='cart'&&<div className="p-4"><h2 className="font-black text-[13px]">Cart — Fastershop Store Only</h2>{cart.length===0?<p className="text-[11px] text-zinc-500 mt-6">Empty</p>:cart.map((p,i)=><div key={i} className="bg-zinc-900 p-3 rounded-xl flex gap-3 mt-2"><img src={p.images?.[0]} className="w-16 h-16 rounded-xl object-cover" alt=""/><div><p className="text-[11px] font-bold">{p.title||p.name}</p><p className="text-[10px] text-zinc-400">{p.price}</p></div></div>)}<button className="w-full mt-4 bg-[#39FF14] text-black font-black py-3 rounded-full text-[11px]">Pay with Paystack</button></div>}
 
-      {/* FIXED PROFILE: ONE block only - Profile + AdminPanel together */}
       {tab==='profile'&&<>
         <Profile user={user} profile={profile} products={products.filter(p=>p.vendor_id===user.id)} reload={loadAll} getVendor={getVendor}/>
         <div className="mx-4 mt-6 mb-2 border-t-2 border-[#39FF14] pt-4">
@@ -176,6 +186,38 @@ export default function App(){
   )
 }
 
+// ===== AUTH FORM - LOGIN + SIGNUP TOGETHER =====
+function AuthForm(){
+  const [mode,setMode]=useState('login')
+  const [email,setEmail]=useState('')
+  const [password,setPassword]=useState('')
+  const [loading,setLoading]=useState(false)
+  const submit=async(e)=>{
+    e.preventDefault()
+    if(!email||!password) return alert('Enter email + password')
+    setLoading(true)
+    try{
+      const res = mode==='login'
+        ? await supabase.auth.signInWithPassword({email,password})
+        : await supabase.auth.signUp({email,password})
+      if(res.error) throw res.error
+      if(mode==='signup') alert('Account created! Check your email, then login.')
+    }catch(err){ alert(err.message) } finally{ setLoading(false) }
+  }
+  return (
+    <form onSubmit={submit} className="w-full max-w-[340px] bg-black/70 backdrop-blur-md border border-white/20 rounded-[24px] p-5 space-y-3 shadow-2xl">
+      <div className="flex bg-zinc-900 rounded-full p-1">
+        <button type="button" onClick={()=>setMode('login')} className={`flex-1 py-2.5 rounded-full text-[12px] font-black ${mode==='login'?'bg-white text-black':'text-zinc-400'}`}>Login</button>
+        <button type="button" onClick={()=>setMode('signup')} className={`flex-1 py-2.5 rounded-full text-[12px] font-black ${mode==='signup'?'bg-white text-black':'text-zinc-400'}`}>Sign Up</button>
+      </div>
+      <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" className="w-full bg-zinc-900 border border-zinc-700 rounded-full px-4 py-3 text-[13px] outline-none focus:border-[#39FF14]"/>
+      <input value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" type="password" className="w-full bg-zinc-900 border border-zinc-700 rounded-full px-4 py-3 text-[13px] outline-none focus:border-[#39FF14]"/>
+      <button disabled={loading} className="w-full bg-[#39FF14] text-black font-black py-3.5 rounded-full text-[13px]">{loading?'Please wait...':mode==='login'?'Login →':'Create Account →'}</button>
+      <p className="text-center text-[10px] text-zinc-400">{mode==='login'?'New here? Tap Sign Up above 👆':'Already have account? Tap Login 👆'}</p>
+    </form>
+  )
+}
+
 function StoryViewer({stories,idx,setIdx,onClose,getVendor}){
   const curr=stories[idx]
   useEffect(()=>{const t=setTimeout(()=>{if(idx<stories.length-1)setIdx(idx+1);else onClose()},5000);return()=>clearTimeout(t)},[idx,stories.length])
@@ -189,7 +231,6 @@ function StoryViewer({stories,idx,setIdx,onClose,getVendor}){
   </div>
 }
 
-// ONLY ONE Search now - the pretty one. Old dull one DELETED.
 function Search({vendors,fasterShop,products,getVendor,onOpenVendor}){
   const [q,setQ]=useState('')
   const [cat,setCat]=useState('All')
@@ -295,37 +336,43 @@ function VendorProfile({vendor,currentUser,products,stories,onBack,onStoryClick,
   const [postIdx,setPostIdx]=useState(0)
   const [showFollow,setShowFollow]=useState(null)
   const [followIds,setFollowIds]=useState([])
+  const [tab2,setTab2]=useState('posts')
   const isOwn=currentUser?.id===vendor?.id
   useEffect(()=>{setBioText(vendor?.bio||'')},[vendor?.id,vendor?.bio])
   const toggleFollow=async()=>{
     const isF=followMap[vendor.id]
-    const {error}=isF?await supabase.from('follows').delete().eq('follower_id',currentUser.id).eq('following_id',vendor.id):await supabase.from('follows').insert({follower_id:currentUser.id,following_id:vendor.id})
-    if(error)return alert(error.message)
+    const r = isF ? await supabase.from('follows').delete().eq('follower_id',currentUser.id).eq('following_id',vendor.id) : await supabase.from('follows').insert({follower_id:currentUser.id,following_id:vendor.id})
+    if(r.error)return alert(r.error.message)
     if(isF){const nm={...followMap};delete nm[vendor.id];setFollowMap(nm)}else{setFollowMap({...followMap,[vendor.id]:true});if(sendNotif)sendNotif(vendor.id,'follow','New follower','started following you',null)}
     await refreshFollowCounts()
   }
-  const openFollowList=async(type)=>{const col=type==='followers'?'following_id':'follower_id';const valCol=type==='followers'?'follower_id':'following_id';const {data}=await supabase.from('follows').select(valCol).eq(col,vendor.id);setFollowIds((data||[]).map(r=>r[valCol]));setShowFollow(type)}
+  const openFollowList=async(type)=>{const col=type==='followers'?'following_id':'follower_id';const valCol=type==='followers'?'follower_id':'following_id';const res = await supabase.from('follows').select(valCol).eq(col,vendor.id);setFollowIds((res.data||[]).map(x=>x[valCol]));setShowFollow(type)}
   const saveBio=async()=>{await supabase.from('profiles').update({bio:bioText}).eq('id',vendor.id);await reload();setEditingBio(false)}
   const changeAvatar=async()=>{
     const input=document.createElement('input');input.type='file';input.accept='image/*';
-    input.onchange=async(e)=>{const f=e.target.files?.[0]; if(!f)return; const name=`${vendor.id}/avatar-${Date.now()}-${f.name.replace(/[^a-zA-Z0-9.-]/g,'_')}`; const {error}=await supabase.storage.from('product-images').upload(name,f,{upsert:true}); if(error)return alert(error.message); const {data}=supabase.storage.from('product-images').getPublicUrl(name); await supabase.from('profiles').update({avatar_url:data.publicUrl}).eq('id',vendor.id); await reload(); alert('Profile picture updated')};
+    input.onchange=async(e)=>{const f=e.target.files?.[0]; if(!f)return; const name=`${vendor.id}/avatar-${Date.now()}-${f.name.replace(/[^a-zA-Z0-9.-]/g,'_')}`; const up = await supabase.storage.from('product-images').upload(name,f,{upsert:true}); if(up.error)return alert(up.error.message); const pub=supabase.storage.from('product-images').getPublicUrl(name); await supabase.from('profiles').update({avatar_url:pub.data.publicUrl}).eq('id',vendor.id); await reload(); alert('Profile picture updated')};
     input.click()
   }
-  const deletePost=async(pid)=>{if(!confirm('Delete this post?'))return;const {error}=await supabase.from('products').delete().eq('id',pid);if(error)return alert(error.message);setSelectedPost(null);await reload()}
+  const deletePost=async(pid)=>{if(!confirm('Delete this post?'))return;const del = await supabase.from('products').delete().eq('id',pid);if(del.error)return alert(del.error.message);setSelectedPost(null);await reload()}
   if(!vendor)return null
   const hasStory=stories.length>0
-  return <div><div className="p-4 border-b border-zinc-900 flex gap-3 items-center"><button onClick={onBack}>Back</button><p className="font-black text-[12px]">{vendor.vendor_name}</p></div>
-  <div className="p-4 flex gap-5 items-start">
-    <div className="relative"><button onClick={()=>hasStory&&onStoryClick(stories)} className={`w-20 h-20 rounded-full p-[2px] block ${hasStory?'bg-gradient-to-tr from-[#39FF14] to-yellow-400':'bg-zinc-700'}`}><img src={vendor.avatar_url||``} className="w-full h-full rounded-full border-2 border-black object-cover" alt=""/></button>{isOwn&&<button onClick={changeAvatar} className="absolute -bottom-1 -right-1 bg-white text-black w-6 h-6 rounded-full text-[10px] font-bold">+</button>}</div>
-    <div className="flex-1">
-      <div className="flex gap-6"><div className="text-center"><p className="font-black text-[16px]">{products.length}</p><p className="text-[10px] text-zinc-500">Posts</p></div><button onClick={()=>openFollowList('followers')} className="text-center"><p className="font-black text-[16px]">{followers}</p><p className="text-[10px] text-zinc-500 underline">Followers</p></button><button onClick={()=>openFollowList('following')} className="text-center"><p className="font-black text-[16px]">{following}</p><p className="text-[10px] text-zinc-500 underline">Following</p></button></div>
-      <div className="mt-3">{editingBio?<div className="space-y-2"><textarea value={bioText} onChange={e=>setBioText(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-[11px]"/><div className="flex gap-2"><button onClick={saveBio} className="bg-white text-black px-4 py-2 rounded-full text-[10px] font-bold">Save</button><button onClick={()=>setEditingBio(false)} className="bg-zinc-800 px-4 py-2 rounded-full text-[10px]">Cancel</button></div></div>:<><p className="text-[11px]">{vendor.bio||'Faster Shop vendor'}</p>{isOwn&&<div className="flex gap-2 mt-2"><button onClick={()=>setEditingBio(true)} className="text-[10px] bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full">Edit Bio</button><button onClick={changeAvatar} className="text-[10px] bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full">Change Photo</button></div>}</>}</div>
-      {!isOwn&&<button onClick={toggleFollow} className={`mt-3 w-full py-2 rounded-full text-[11px] font-bold ${followMap[vendor.id]?'bg-zinc-800 text-white':'bg-white text-black'}`}>{followMap[vendor.id]?'Following':'Follow'}</button>}
+  const coverImg=products[0]?.images?.[0]||vendor.avatar_url||''
+  return <div className="pb-6">
+    <div className="relative">
+      <div className="h-[140px] overflow-hidden">{coverImg?<img src={coverImg} className="w-full h-full object-cover" alt=""/>:<div className="w-full h-full bg-gradient-to-br from-[#39FF14]/30 via-zinc-900 to-black"/>}<div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"/></div>
+      <div className="absolute top-3 left-3 right-3 flex justify-between"><button onClick={onBack} className="bg-black/70 px-4 py-2 rounded-full text-[11px] font-bold">← Back</button><span className="bg-[#39FF14] text-black px-3 py-2 rounded-full text-[9px] font-black">✓ VERIFIED VENDOR</span></div>
+      <div className="absolute -bottom-10 left-4 flex items-end gap-3"><button onClick={()=>hasStory&&onStoryClick(stories)} className={`w-[88px] h-[88px] rounded-full p-[3px] block shrink-0 ${hasStory?'bg-gradient-to-tr from-[#39FF14] to-yellow-400':'bg-white'}`}><img src={vendor.avatar_url||``} className="w-full h-full rounded-full border-4 border-black object-cover" alt=""/></button>{isOwn&&<button onClick={changeAvatar} className="mb-1 -ml-8 z-10 bg-white text-black w-7 h-7 rounded-full text-[12px] font-black border-2 border-black">+</button>}</div>
     </div>
-  </div>
-  {showFollow&&<FollowList title={showFollow==='followers'?'Followers':'Following'} ids={followIds} onClose={()=>setShowFollow(null)} onOpenVendor={(v)=>{setShowFollow(null)}} getVendor={getVendor}/>}
-  <div className="grid grid-cols-3 gap-0.5 mt-4">{products.map(p=>{const imgs=p.images||p.image_urls||[];return <div key={p.id} onClick={()=>{setSelectedPost(p);setPostIdx(0)}} className="aspect-square bg-zinc-900 relative cursor-pointer"><img src={imgs[0]} className="w-full h-full object-cover" alt=""/>{p.images?.length>1&&<span className="absolute top-1 right-1 bg-black/70 text-[7px] px-1 rounded">+{p.images.length-1}</span>}<div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1"><p className="text-[8px] font-bold truncate">₦{p.price}</p>{p.size&&<p className="text-[7px] text-zinc-300">Size: {p.size}</p>}</div></div>})}</div>
-  {selectedPost&&(()=>{const imgs=selectedPost.images||selectedPost.image_urls||[];return <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col" onClick={()=>setSelectedPost(null)}><div className="flex justify-between items-center p-4" onClick={e=>e.stopPropagation()}><p className="text-[12px] font-black">{vendor.vendor_name}</p><button onClick={()=>setSelectedPost(null)} className="text-[18px]">✕</button></div><div className="flex-1 flex items-center justify-center relative px-4" onClick={e=>e.stopPropagation()}>{imgs.length>0&&<img src={imgs[postIdx]} className="max-h-[60vh] w-full object-contain rounded-xl" alt=""/>}{imgs.length>1&&<><button onClick={()=>setPostIdx((postIdx-1+imgs.length)%imgs.length)} className="absolute left-2 bg-black/60 w-8 h-8 rounded-full">‹</button><button onClick={()=>setPostIdx((postIdx+1)%imgs.length)} className="absolute right-2 bg-black/60 w-8 h-8 rounded-full">›</button></>}</div><div className="bg-zinc-900 p-4 space-y-2" onClick={e=>e.stopPropagation()}><p className="text-[13px] font-bold">{selectedPost.title||selectedPost.name}</p><p className="text-[11px] text-zinc-300 whitespace-pre-wrap">{selectedPost.description||selectedPost.caption||'No caption'}</p><div className="flex gap-2 text-[11px]"><span className="bg-[#39FF14] text-black px-3 py-1 rounded-full font-black">₦{selectedPost.price}</span>{selectedPost.size&&<span className="bg-zinc-800 px-3 py-1 rounded-full">Size: {selectedPost.size}</span>}<span className="bg-zinc-800 px-3 py-1 rounded-full">{selectedPost.category||''}</span></div>{isOwn&&<button onClick={()=>deletePost(selectedPost.id)} className="w-full mt-2 bg-red-600 text-white font-bold py-3 rounded-full text-[11px]">🗑️ Delete This Post</button>}</div></div>})()}
+    <div className="pt-12 px-4">
+      <div className="flex justify-between items-start"><div><h1 className="font-black text-[20px] leading-none">{vendor.vendor_name}</h1><p className="text-[11px] text-zinc-500 mt-1">@{vendor.vendor_name?.toLowerCase().replace(/\s/g,'')} • Lagos, Nigeria</p></div><span className="bg-zinc-900 border border-zinc-800 text-[9px] px-3 py-1.5 rounded-full font-bold">⭐ FASTER SHOP</span></div>
+      <div className="mt-3">{editingBio?<div className="space-y-2"><textarea value={bioText} onChange={e=>setBioText(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-[12px]"/><div className="flex gap-2"><button onClick={saveBio} className="bg-white text-black px-5 py-2.5 rounded-full text-[11px] font-bold">Save Bio</button><button onClick={()=>setEditingBio(false)} className="bg-zinc-800 px-5 py-2.5 rounded-full text-[11px]">Cancel</button></div></div>:<><p className="text-[12px] text-zinc-300 leading-relaxed">{vendor.bio||'🔥 Fresh drops, quality pieces. Message me to order — fast delivery in Lagos.'}</p>{isOwn&&<div className="flex gap-2 mt-3"><button onClick={()=>setEditingBio(true)} className="text-[11px] bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-full font-bold">Edit Bio</button><button onClick={changeAvatar} className="text-[11px] bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-full font-bold">Change Photo</button></div>}</>}</div>
+      <div className="flex gap-2 mt-4 bg-zinc-900 border border-zinc-800 rounded-2xl p-3"><div className="flex-1 text-center"><p className="font-black text-[16px]">{products.length}</p><p className="text-[10px] text-zinc-500">Posts</p></div><button onClick={()=>openFollowList('followers')} className="flex-1 text-center border-x border-zinc-800"><p className="font-black text-[16px]">{followers}</p><p className="text-[10px] text-zinc-500 underline">Followers</p></button><button onClick={()=>openFollowList('following')} className="flex-1 text-center"><p className="font-black text-[16px]">{following}</p><p className="text-[10px] text-zinc-500 underline">Following</p></button></div>
+      {!isOwn&&<div className="flex gap-2 mt-3"><button onClick={toggleFollow} className={`flex-1 py-3.5 rounded-full text-[12px] font-black ${followMap[vendor.id]?'bg-zinc-800 text-white border border-zinc-700':'bg-[#39FF14] text-black'}`}>{followMap[vendor.id]?'✓ Following':'Follow'}</button><button className="flex-1 py-3.5 rounded-full text-[12px] font-black bg-white text-black">Message 💬</button></div>}
+      <div className="flex gap-2 mt-5 border-b border-zinc-900 pb-2"><button onClick={()=>setTab2('posts')} className={`px-4 py-2 rounded-full text-[11px] font-black ${tab2==='posts'?'bg-white text-black':'text-zinc-400'}`}>Posts ({products.length})</button><button onClick={()=>setTab2('about')} className={`px-4 py-2 rounded-full text-[11px] font-black ${tab2==='about'?'bg-white text-black':'text-zinc-400'}`}>About</button></div>
+      {tab2==='about'?<div className="mt-4 bg-zinc-900 rounded-2xl p-4 space-y-2"><p className="text-[12px] font-bold">About {vendor.vendor_name}</p><p className="text-[11px] text-zinc-400 leading-relaxed">{vendor.bio||'This vendor sells quality fashion on Faster Shop. Tap Message to ask about sizes, delivery, and availability.'}</p><p className="text-[11px] text-zinc-400">📍 Lagos, Nigeria • 🚚 Fast delivery • 💬 Replies fast</p></div>:<div className="mt-3">{products.length===0?<div className="bg-zinc-900 rounded-2xl p-8 text-center"><p className="text-[28px]">🛍️</p><p className="text-[12px] font-bold mt-2">No posts yet</p></div>:<div className="grid grid-cols-3 gap-1">{products.map(p=>{const imgs=p.images||p.image_urls||[];return <div key={p.id} onClick={()=>{setSelectedPost(p);setPostIdx(0)}} className="aspect-square bg-zinc-900 relative cursor-pointer rounded-lg overflow-hidden"><img src={imgs[0]} className="w-full h-full object-cover" alt=""/>{p.images?.length>1&&<span className="absolute top-1.5 right-1.5 bg-black/70 text-[8px] px-1.5 py-0.5 rounded-full font-bold">+{p.images.length-1}</span>}<div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-1.5"><p className="text-[9px] font-black truncate">₦{p.price}</p></div></div>})}</div>}</div>}
+    </div>
+    {showFollow&&<FollowList title={showFollow==='followers'?'Followers':'Following'} ids={followIds} onClose={()=>setShowFollow(null)} onOpenVendor={(v)=>{setShowFollow(null)}} getVendor={getVendor}/>}
+    {selectedPost&&(()=>{const imgs=selectedPost.images||selectedPost.image_urls||[];return <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col" onClick={()=>setSelectedPost(null)}><div className="flex justify-between items-center p-4" onClick={e=>e.stopPropagation()}><p className="text-[13px] font-black">{vendor.vendor_name}</p><button onClick={()=>setSelectedPost(null)} className="w-8 h-8 bg-zinc-800 rounded-full text-[16px]">✕</button></div><div className="flex-1 flex items-center justify-center relative px-4" onClick={e=>e.stopPropagation()}>{imgs.length>0&&<img src={imgs[postIdx]} className="max-h-[60vh] w-full object-contain rounded-2xl" alt=""/>}{imgs.length>1&&<><button onClick={()=>setPostIdx((postIdx-1+imgs.length)%imgs.length)} className="absolute left-2 bg-black/70 w-9 h-9 rounded-full">‹</button><button onClick={()=>setPostIdx((postIdx+1)%imgs.length)} className="absolute right-2 bg-black/70 w-9 h-9 rounded-full">›</button><span className="absolute bottom-2 bg-black/70 px-2 py-1 rounded-full text-[10px]">{postIdx+1}/{imgs.length}</span></>}</div><div className="bg-zinc-900 p-4 space-y-2 rounded-t-[24px]" onClick={e=>e.stopPropagation()}><p className="text-[14px] font-black">{selectedPost.title||selectedPost.name}</p><p className="text-[11px] text-zinc-300 whitespace-pre-wrap">{selectedPost.description||selectedPost.caption||'No caption'}</p><div className="flex gap-2 text-[11px]"><span className="bg-[#39FF14] text-black px-3 py-1.5 rounded-full font-black">₦{selectedPost.price}</span>{selectedPost.size&&<span className="bg-zinc-800 px-3 py-1.5 rounded-full">Size: {selectedPost.size}</span>}<span className="bg-zinc-800 px-3 py-1.5 rounded-full">{selectedPost.category||''}</span></div>{isOwn&&<button onClick={()=>deletePost(selectedPost.id)} className="w-full mt-2 bg-red-600 text-white font-bold py-3 rounded-full text-[11px]">🗑️ Delete This Post</button>}</div></div>})()}
   </div>
 }
 
@@ -487,49 +534,28 @@ function ChatRoomWithActions({user,vendor,product,onBack,onViewProfile,profile})
   const [menuOpen,setMenuOpen]=useState(false)
   const ref=useRef()
   useEffect(()=>{const init=async()=>{
-    const {data:blocked,error:blockError}=await supabase.from('user_blocks').select('blocked_id').eq('blocker_id',user.id).eq('blocked_id',vendor.id).maybeSingle()
-    if(blockError){alert(blockError.message);onBack();return}
-    if(blocked){alert('You have blocked this user.');onBack();return}
-    let{data:conv,error:convError}=await supabase.from('conversations').select('*').or(`and(buyer_id.eq.${user.id},vendor_id.eq.${vendor.id}),and(buyer_id.eq.${vendor.id},vendor_id.eq.${user.id})`).maybeSingle()
-    if(convError){alert(convError.message);return}
-    if(!conv){const{data:newConv,error:newConvError}=await supabase.from('conversations').insert({buyer_id:user.id,vendor_id:vendor.id}).select().single();if(newConvError){alert(newConvError.message);return}conv=newConv}
-    const {error:unhideError}=await supabase.from('chat_hides').delete().eq('user_id',user.id).eq('conversation_id',conv.id)
-    if(unhideError){alert(unhideError.message);return}
+    if(!vendor) return
+    let {data:conv}=await supabase.from('conversations').select('*').or(`and(buyer_id.eq.${user.id},vendor_id.eq.${vendor.id}),and(buyer_id.eq.${vendor.id},vendor_id.eq.${user.id})`).maybeSingle()
+    if(!conv){const {data:newConv}=await supabase.from('conversations').insert({buyer_id:user.id,vendor_id:vendor.id}).select().single();conv=newConv}
+    if(!conv) return
     setConvId(conv.id)
-    const{data:m,error:messagesError}=await supabase.from('messages').select('*').eq('conversation_id',conv.id).order('created_at')
-    if(messagesError){alert(messagesError.message);return}
-    setMsgs(m||[])
-  };init()},[user.id,vendor.id])
-  useEffect(()=>{if(!convId)return;const ch=supabase.channel(`chat-${convId}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`conversation_id=eq.${convId}`},p=>setMsgs(prev=>[...prev,p.new])).subscribe();return()=>supabase.removeChannel(ch)},[convId])
-  useEffect(()=>{ref.current?.scrollIntoView({behavior:'smooth'})},[msgs])
+    const {data}=await supabase.from('messages').select('*').eq('conversation_id',conv.id).order('created_at',{ascending:true})
+    setMsgs(data||[])
+    const ch=supabase.channel(`chat-${conv.id}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`conversation_id=eq.${conv.id}`},p=>setMsgs(prev=>[...prev,p.new])).subscribe()
+    return()=>supabase.removeChannel(ch)
+  }; let cleanup; init().then(c=>cleanup=c); return()=>cleanup&&cleanup()},[user.id,vendor?.id])
+  useEffect(()=>{ref.current?.scrollIntoView({behavior:'smooth'})},[msgs.length])
   const send=async()=>{
-    if(!text.trim()||!convId)return
-    const msgText=text
-    const {error}=await supabase.from('messages').insert({conversation_id:convId,sender_id:user.id,text:msgText})
-    if(error){alert(error.message);return}
+    if(!text.trim()||!convId) return
+    const {data}=await supabase.from('messages').insert({conversation_id:convId,sender_id:user.id,text:text.trim()}).select().single()
+    if(data) setMsgs(prev=>[...prev,data])
     setText('')
-    if(vendor.id!==user.id){try{await supabase.from('notifications').insert({user_id:vendor.id,actor_id:user.id,actor_name:profile?.vendor_name||user.email?.split('@')[0]||'User',type:'message',title:'New message',message:msgText})}catch(e){}}
   }
-  const deleteChat=async()=>{
-    if(!confirm('Delete this chat?'))return
-    const {error}=await supabase.from('chat_hides').upsert({user_id:user.id,conversation_id:convId},{onConflict:'user_id,conversation_id',ignoreDuplicates:true})
-    if(error){alert(error.message);return}
-    onBack()
-  }
-  const blockUser=async()=>{
-    const {error}=await supabase.from('user_blocks').upsert({blocker_id:user.id,blocked_id:vendor.id},{onConflict:'blocker_id,blocked_id',ignoreDuplicates:true})
-    if(error){alert(error.message);return}
-    if(convId){
-      const {error:hideError}=await supabase.from('chat_hides').upsert({user_id:user.id,conversation_id:convId},{onConflict:'user_id,conversation_id',ignoreDuplicates:true})
-      if(hideError){alert(hideError.message);onBack();return}
-    }
-    onBack()
-  }
-  return <div className="flex flex-col h-[calc(100vh-112px)]"><div className="p-4 border-b border-zinc-900 flex items-center gap-3"><button onClick={onBack}>Back</button><button onClick={()=>onViewProfile(vendor)} className="text-[12px] font-bold">{vendor?.vendor_name}</button><div className="relative ml-auto"><button aria-label="Chat options" onClick={()=>setMenuOpen(!menuOpen)} className="w-8 h-8 rounded-full text-lg text-zinc-400 hover:bg-zinc-800">⋯</button>{menuOpen&&<ChatActionsMenu onDelete={deleteChat} onBlock={blockUser} onViewProfile={()=>{setMenuOpen(false);onViewProfile(vendor)}} onCancel={()=>setMenuOpen(false)}/>}</div></div>{product&&<div className="p-3 bg-zinc-900 border-b border-zinc-800 flex gap-3"><img src={product.images?.[0]} className="w-12 h-12 rounded-lg object-cover" alt=""/><div><p className="text-[11px] font-bold">{product.title}</p><p className="text-[10px] text-zinc-400">{product.price}</p></div></div>}<div className="flex-1 overflow-y-auto p-4 space-y-3">{msgs.map(m=><div key={m.id} className={`max-w-[75%] ${m.sender_id===user.id?'ml-auto':''}`}><div className={`p-3 rounded-2xl text-[11px] ${m.sender_id===user.id?'bg-[#39FF14] text-black':'bg-zinc-900 border border-zinc-800'}`}>{m.text}</div><p className={`text-[9px] text-zinc-500 mt-1 ${m.sender_id===user.id?'text-right':''}`}>{new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} • {new Date(m.created_at).toLocaleDateString()}</p></div>)}<div ref={ref}></div></div><div className="p-3 border-t border-zinc-900 flex gap-2"><input value={text} onChange={e=>setText(e.target.value)} placeholder="Message..." className="flex-1 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-3 text-[11px]" onKeyDown={e=>e.key==='Enter'&&send()}/><button onClick={send} className="bg-white text-black px-5 rounded-full text-[11px] font-bold">Send</button></div></div>
-}
-
-function AuthForm(){
-  const [email,setEmail]=useState('');const [pass,setPass]=useState('');const [mode,setMode]=useState('login')
-  const handle=async(e)=>{e.preventDefault();try{if(mode==='signup'){const{error}=await supabase.auth.signUp({email,password:pass});if(error)throw error;alert('Created! Login now');setMode('login')}else{const{error}=await supabase.auth.signInWithPassword({email,password:pass});if(error)throw error}}catch(err){alert(err.message)}}
-  return <form onSubmit={handle} className="w-full max-w-sm space-y-3 mt-6"><input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full p-3 rounded-full bg-zinc-900 border border-zinc-800 text-sm"/><input value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="Password" className="w-full p-3 rounded-full bg-zinc-900 border border-zinc-800 text-sm"/><button className="w-full bg-[#39FF14] text-black font-bold py-3 rounded-full text-sm">{mode==='signup'?'Create Account':'Login'}</button><button type="button" onClick={()=>setMode(mode==='login'?'signup':'login')} className="w-full text-[11px] text-zinc-500">{mode==='login'?'Need account? Signup':'Have account? Login'}</button></form>
+  if(!vendor) return <div className="p-4"><button onClick={onBack}>Back</button><p className="text-[12px] mt-4">No vendor selected</p></div>
+  return <div className="flex flex-col h-[80vh]">
+    <div className="p-4 flex items-center gap-3 border-b border-zinc-900"><button onClick={onBack}>←</button><img src={vendor.avatar_url||''} className="w-9 h-9 rounded-full object-cover bg-zinc-800" alt=""/><div className="flex-1"><p className="text-[12px] font-bold">{vendor.vendor_name}</p><p className="text-[10px] text-zinc-500">Online</p></div><button onClick={()=>onViewProfile(vendor)} className="text-[11px] bg-zinc-900 px-3 py-1.5 rounded-full">View Profile</button></div>
+    {product&&<div className="mx-4 mt-3 bg-zinc-900 p-3 rounded-2xl flex gap-3 items-center"><img src={product.images?.[0]} className="w-12 h-12 rounded-xl object-cover" alt=""/><div><p className="text-[11px] font-bold">{product.title||product.name}</p><p className="text-[10px] text-[#39FF14]">₦{product.price}</p></div></div>}
+    <div className="flex-1 overflow-y-auto p-4 space-y-2">{msgs.map(m=><div key={m.id} className={`max-w-[75%] px-3 py-2 rounded-2xl text-[12px] ${m.sender_id===user.id?'ml-auto bg-[#39FF14] text-black':'bg-zinc-900'}`}>{m.text}</div>)}<div ref={ref}/></div>
+    <div className="p-3 flex gap-2 border-t border-zinc-900"><input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} placeholder="Message..." className="flex-1 bg-zinc-900 rounded-full px-4 py-3 text-[12px] outline-none"/><button onClick={send} className="bg-[#39FF14] text-black px-5 rounded-full font-black text-[12px]">Send</button></div>
+  </div>
 }

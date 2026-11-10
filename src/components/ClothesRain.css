@@ -1,0 +1,45 @@
+.clothes-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, #1a0b2e 0%, #2d1b4e 45%, #ff4d8d 100%);
+  pointer-events: none;
+}
+
+.falling-cloth {
+  position: absolute;
+  top: -80px;
+  animation: fall linear infinite;
+  filter: drop-shadow(0 10px 12px rgba(0,0,0,0.35));
+  opacity: 0.95;
+}
+
+@keyframes fall {
+  0% { transform: translateY(-80px) translateX(0) rotate(0deg); }
+  25% { transform: translateY(25vh) translateX(var(--sway)) rotate(var(--rotate)); }
+  50% { transform: translateY(50vh) translateX(calc(var(--sway) * -1)) rotate(calc(var(--rotate) * -1)); }
+  75% { transform: translateY(75vh) translateX(var(--sway)) rotate(var(--rotate)); }
+  100% { transform: translateY(105vh) translateX(0) rotate(0deg); opacity: 0; }
+}
+
+.clothes-pile {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 42px;
+  line-height: 0.9;
+  letter-spacing: -4px;
+  filter: drop-shadow(0 -8px 20px rgba(0,0,0,0.4));
+  z-index: 2;
+}
+
+.floor-glow {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 140px;
+  background: linear-gradient(180deg, transparent, rgba(255,255,255,0.18));
+}
