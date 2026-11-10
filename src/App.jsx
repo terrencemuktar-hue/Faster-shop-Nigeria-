@@ -145,18 +145,15 @@ export default function App(){
         {profile?.is_vendor ? (
           <Profile user={user} profile={profile} products={products.filter(p=>p.vendor_id===user.id)} reload={loadAll} getVendor={getVendor}/>
         ) : (
-          <BuyerProfile user={user} profile={profile} reload={loadAll} setTab={setTab} />
+          <BuyerProfile user={user} profile={profile} reload={loadAll} setTab={setTab} products={products} likes={likes} getVendor={getVendor} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}} />
         )}
-        <div className="mx-4 mt-6 mb-2 border-t-2 border-[#39FF14] pt-4">
-          <p className="text-[12px] font-black">⚙️ ADMIN PANEL — Faster Shop Control</p>
-          <p className="text-[10px] text-zinc-500">Logged in as: {currentEmail||'unknown'} {isAdmin?'• ADMIN ✅':'• Not admin'}</p>
-        </div>
-        {isAdmin ? <AdminPanel user={user} profile={profile} /> : (
-          <div className="mx-4 bg-zinc-900 border border-zinc-800 p-4 rounded-2xl">
-            <p className="text-[11px] font-bold">Admin Panel hidden</p>
-            <p className="text-[11px] text-zinc-400 mt-1">You are logged in as <b>{currentEmail}</b>. Login with terrence@faster.shop to see Admin.</p>
+        {isAdmin && <>
+          <div className="mx-4 mt-6 mb-2 border-t-2 border-[#39FF14] pt-4">
+            <p className="text-[12px] font-black">⚙️ ADMIN PANEL — Faster Shop Control</p>
+            <p className="text-[10px] text-zinc-500">Logged in as: {currentEmail||'unknown'} • ADMIN ✅</p>
           </div>
-        )}
+          <AdminPanel user={user} profile={profile} />
+        </>}
       </>}
       {tab==='notifications'&&<Notifications notifications={notifications} products={products} getVendor={getVendor} onBack={()=>setTab('home')} onOpenProduct={(p)=>{const v=getVendor(p?.vendor_id);if(v){setSelectedVendor(v);setTab('vendor')}}} onOpenChat={(actorId)=>{const v=getVendor(actorId);if(v){setSelectedChat(v);setTab('chat')}}} onClear={async()=>{await supabase.from('notifications').update({is_read:true}).eq('user_id',user.id);setNotifications(prev=>prev.map(n=>({...n,is_read:true})))}}/>}
       {tab==='settings'&&<Settings user={user} profile={profile} reload={loadAll} onBack={()=>setTab('profile')}/>}
@@ -370,16 +367,11 @@ function VendorProfile({vendor,currentUser,products,stories,onBack,onStoryClick,
   </div>
 }
 
-function BuyerProfile({user,profile,reload,setTab}){
+function BuyerProfile({user,profile,reload,setTab,products,likes,getVendor,onOpenVendor}){
   const name = profile?.vendor_name || user.email?.split('@')[0] || 'User'
   const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
-  const becomeVendor = async()=>{
-    if(!confirm('Switch to Vendor? You will get Upload Product, Posts, Followers.')) return
-    localStorage.setItem('faster_role','vendor')
-    await supabase.from('profiles').update({is_vendor:true}).eq('id',user.id)
-    await reload()
-  }
-  const go = (t)=> setTab ? setTab(t) : alert('Coming soon')
+  const go = (t)=> setTab ? setTab(t) : null
+  const wishlist = (products||[]).filter(p=>likes?.[p.id])
   return <div className="p-4 space-y-4 bg-black">
     <div className="bg-zinc-900 border border-zinc-800 rounded-[24px] p-4 flex gap-4 items-center">
       <div className="w-[72px] h-[72px] rounded-full bg-black border-2 border-zinc-700 flex items-center justify-center shrink-0">
@@ -395,15 +387,34 @@ function BuyerProfile({user,profile,reload,setTab}){
     <div className="bg-zinc-900 border border-zinc-800 rounded-[24px] overflow-hidden divide-y divide-zinc-800">
       <button onClick={()=>go('cart')} className="w-full p-4 flex items-center gap-3 text-left"><span className="text-[20px]">📦</span><span className="flex-1 font-bold text-[13px]">My Orders & Deliveries</span><span className="text-zinc-500">→</span></button>
       <button onClick={()=>go('settings')} className="w-full p-4 flex items-center gap-3 text-left"><span className="text-[20px]">📍</span><span className="flex-1 font-bold text-[13px]">Saved Shipping Addresses</span><span className="text-zinc-500">→</span></button>
-      <button onClick={becomeVendor} className="w-full p-4 flex items-center gap-3 text-left"><span className="text-[20px]">🚀</span><span className="flex-1 font-bold text-[13px]">Vendor Dashboard & Stories</span><span className="text-zinc-500">→</span></button>
+      <button onClick={()=>go('shop')} className="w-full p-4 flex items-center gap-3 text-left"><span className="text-[20px]">❤️</span><span className="flex-1 font-bold text-[13px]">Wishlist <span className="text-zinc-500 font-normal">({wishlist.length})</span></span><span className="text-zinc-500">→</span></button>
       <button onClick={()=>go('settings')} className="w-full p-4 flex items-center gap-3 text-left"><span className="text-[20px]">⚙️</span><span className="flex-1 font-bold text-[13px]">Account Settings</span><span className="text-zinc-500">→</span></button>
     </div>
-    <div className="bg-zinc-900 border border-[#39FF14]/30 rounded-[24px] p-4">
-      <p className="font-black text-[12px]">Want to sell on Faster?</p>
-      <p className="text-[11px] text-zinc-400 mt-1">Switch to Vendor to upload products, post stories and get followers.</p>
-      <button onClick={becomeVendor} className="w-full mt-3 bg-[#39FF14] text-black font-black py-3 rounded-full text-[11px]">Become a Vendor →</button>
+    <div>
+      <p className="text-[12px] font-black mb-2">Saved for later ❤️</p>
+      {wishlist.length===0 ? (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-[24px] p-6 text-center">
+          <p className="text-[24px]">🤍</p>
+          <p className="text-[12px] font-bold mt-1">No wishlist yet</p>
+          <p className="text-[11px] text-zinc-500 mt-1">Tap ❤️ on any product to save it here to buy later.</p>
+          <button onClick={()=>go('shop')} className="mt-3 bg-[#39FF14] text-black font-black px-5 py-2.5 rounded-full text-[11px]">Browse Shop →</button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          {wishlist.map(p=>{
+            const v = getVendor ? getVendor(p.vendor_id) : null
+            return <button key={p.id} onClick={()=>{ if(v && onOpenVendor) onOpenVendor(v) }} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden text-left">
+              <img src={p.images?.[0]||''} className="w-full h-28 object-cover bg-zinc-800" alt=""/>
+              <div className="p-2.5">
+                <p className="text-[11px] font-bold truncate">{p.title||p.name}</p>
+                <p className="text-[10px] text-zinc-400 truncate">{v?.vendor_name||'Vendor'}</p>
+                <p className="text-[11px] font-black text-[#39FF14] mt-0.5">₦{p.price}</p>
+              </div>
+            </button>
+          })}
+        </div>
+      )}
     </div>
-    <p className="text-center text-[10px] text-zinc-600">Buyer profile • No posts • No followers • Just shopping</p>
   </div>
 }
 
@@ -519,7 +530,7 @@ function MessagesListWithActions({user,vendors,fasterShop,profile,onSelect,onVie
   const [openMenu,setOpenMenu]=useState(null)
   useEffect(()=>{
     const load=async()=>{
-      const {data:conv,error:convError}=await supabase.from('conversations').select('*').or(`buyer_id.eq.${user.id},vendor_id.eq.${user.id}`).order('created_at',{ascending:false})
+      const {data:conv, error:convError} = await supabase.from('conversations').select('*').or(`buyer_id.eq.${user.id},vendor_id.eq.${user.id}`).order('created_at',{ascending:false})
       if(convError){alert(convError.message);return}
       const [hiddenResult,blockedResult]=await Promise.all([
         supabase.from('chat_hides').select('conversation_id').eq('user_id',user.id),
@@ -534,7 +545,7 @@ function MessagesListWithActions({user,vendors,fasterShop,profile,onSelect,onVie
       const enriched=[]
       for(const c of visible){
         const otherId=c.buyer_id===user.id?c.vendor_id:c.buyer_id
-        const {data:last,error:lastError}=await supabase.from('messages').select('*').eq('conversation_id',c.id).order('created_at',{ascending:false}).limit(1).maybeSingle()
+        const {data:last, error:lastError} = await supabase.from('messages').select('*').eq('conversation_id',c.id).order('created_at',{ascending:false}).limit(1).maybeSingle()
         if(lastError){alert(lastError.message);continue}
         enriched.push({...c,other:map[otherId]||{vendor_name:'Vendor',id:otherId},last:last||null,unread:last&&last.sender_id!==user.id})
       }
