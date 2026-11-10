@@ -301,11 +301,19 @@ function Featured({products,onOpenVendor,getVendor}){
   const curr=list[i]
   return <div className="h-[260px] rounded-[24px] overflow-hidden relative border border-[#39FF14]/30"><img src={curr.images?.[0]} className="w-full h-full object-cover" alt="" /><div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" /><div className="absolute top-3 left-3 flex gap-2"><span className="bg-[#39FF14] text-black text-[9px] px-3 py-1.5 rounded-full font-black">🔥 FEATURED DROP</span><span className="bg-black/70 text-white text-[9px] px-3 py-1.5 rounded-full font-bold">{i+1}/{list.length}</span></div><div className="absolute bottom-0 left-0 right-0 p-4"><h2 className="font-black text-[20px] leading-none">{curr.title||curr.name}</h2><p className="text-[12px] text-zinc-300 mt-1">₦{curr.price} • {curr.category}{curr.size?` • Size: ${curr.size}`:''}</p><button onClick={()=>onOpenVendor(getVendor(curr.vendor_id))} className="mt-3 bg-[#39FF14] text-black px-5 py-2.5 rounded-full text-[11px] font-black">Shop Now →</button></div></div>
 }
+function getGreeting(){
+  const hour = Number(new Intl.DateTimeFormat('en-NG',{timeZone:'Africa/Lagos',hour:'numeric',hour12:false}).format(new Date()))
+  if(hour >= 5 && hour < 12) return { title: 'Good morning, Lagos ☀️', sub: 'Fresh drops from vendors you follow' }
+  if(hour >= 12 && hour < 17) return { title: 'Lagos is buzzing 🔥', sub: "Fresh fits just landed — don't sleep on them" }
+  if(hour >= 17 && hour < 21) return { title: 'Evening in Lagos hits different 🌇', sub: 'Wind down with fresh drops' }
+  return { title: 'Lagos never sleeps 🌙', sub: 'Late night drops for night owls' }
+}
 function Home({products,stories,fasterShop,vendors,selectedCategory,setSelectedCategory,onOpenVendor,onDM,onStoryClick,getVendor,user,likes,toggleLike,comments,addComment,deletePost,vendorsList,profile}){
   const map={};stories.forEach(s=>{const id=s.vendor_id||s.user_id||s.profile_id; if(id){if(!map[id])map[id]=[];map[id].push(s)}})
   const filtered=selectedCategory==='All'?products:products.filter(p=>p.category===selectedCategory)
+  const greeting=getGreeting()
   return <div className="p-4 space-y-5">
-    <div><h1 className="font-black text-[22px] leading-none">Good morning, Lagos ☀️</h1><p className="text-[11px] text-zinc-500 mt-1">Fresh drops from vendors you follow</p></div>
+    <div><h1 className="font-black text-[22px] leading-none">{greeting.title}</h1><p className="text-[11px] text-zinc-500 mt-1">{greeting.sub}</p></div>
     <div className="flex gap-3 overflow-x-auto pb-1">
       {fasterShop&&<button onClick={()=>map[fasterShop.id]?onStoryClick(map[fasterShop.id]):onOpenVendor(fasterShop)} className="flex flex-col items-center shrink-0"><div className={`w-[64px] h-[64px] rounded-full p-[2.5px] ${map[fasterShop.id]?'bg-gradient-to-tr from-[#39FF14] to-yellow-400':'bg-[#39FF14]'}`}><img src={fasterShop.avatar_url} className="w-full h-full rounded-full border-[3px] border-black object-cover" alt="" /></div><span className="text-[9px] font-black mt-1">FASTER ⚡</span></button>}
       {vendors.map(v=><button key={v.id} onClick={()=>map[v.id]?onStoryClick(map[v.id]):onOpenVendor(v)} className="flex flex-col items-center shrink-0 min-w-[64px]"><div className={`w-[64px] h-[64px] rounded-full p-[2.5px] ${map[v.id]?'bg-gradient-to-tr from-pink-500 via-orange-400 to-yellow-400':'bg-zinc-700'}`}><img src={v.avatar_url||``} className="w-full h-full rounded-full border-[3px] border-black object-cover" alt="" /></div><span className="text-[9px] mt-1 truncate max-w-[64px]">{v.vendor_name?.split(' ')[0]}</span></button>)}
