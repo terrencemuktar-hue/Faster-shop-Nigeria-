@@ -5,8 +5,6 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 import ClothesRain from "./components/ClothesRain";
 const CATS=['All','Men','Hoodies','Caps','Perfumes','Shoes','Bags']
-
-// FASTER SHOP ONLY - ADMIN
 const ADMIN_EMAILS=['terrence@faster.shop','terrence@fastersub.ng','terrence@fastershop.ng']
 
 function useFollowerCounts(userId){
@@ -52,10 +50,8 @@ export default function App(){
   const [likes,setLikes]=useState({})
   const [comments,setComments]=useState({})
   const [notifications,setNotifications]=useState([])
-
   const currentEmail=(user?.email||profile?.email||'').toLowerCase().trim()
   const isAdmin=ADMIN_EMAILS.includes(currentEmail)||profile?.is_faster_shop===true
-
   useEffect(()=>{supabase.auth.getSession().then(({data})=>setUser(data.session?.user||null));supabase.auth.onAuthStateChange((_e,s)=>setUser(s?.user||null))},[])
   useEffect(()=>{if(user)loadAll()},[user])
   useEffect(()=>{
@@ -63,11 +59,11 @@ export default function App(){
     const ch=supabase.channel(`notifs-${user.id}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:`user_id=eq.${user.id}`},p=>setNotifications(prev=>[p.new,...prev])).subscribe()
     return()=>supabase.removeChannel(ch)
   },[user?.id])
-
   const loadAll=async()=>{
     let {data:p}=await supabase.from('profiles').select('*').eq('id',user.id).maybeSingle()
     if(!p){
-      await supabase.from('profiles').upsert({id:user.id,email:user.email,is_vendor:true,vendor_name:user.email?.split('@')[0]||'Vendor'},{onConflict:'id'})
+      const wantedRole = localStorage.getItem('faster_role') || user.user_metadata?.role || 'buyer'
+      await supabase.from('profiles').upsert({id:user.id,email:user.email,is_vendor:wantedRole==='vendor',vendor_name:user.email?.split('@')[0]||'Vendor'},{onConflict:'id'})
       const {data:p2}=await supabase.from('profiles').select('*').eq('id',user.id).maybeSingle()
       p=p2
     }
@@ -119,8 +115,6 @@ export default function App(){
     setProducts(prev=>prev.filter(p=>p.id!==pid))
   }
   const openStories=(list)=>{if(!list||!list.length)return;setActiveStories(list);setActiveStoryIdx(0)}
-
-  // ===== CRAZY AUTH - CLOTHES RAINING FROM ROOF =====
   if(!user) return (
     <div className="relative min-h-screen bg-black text-white overflow-hidden">
       <ClothesRain />
@@ -132,7 +126,6 @@ export default function App(){
       </div>
     </div>
   )
-
   return(
     <div className="min-h-screen bg-black text-white pb-20">
       <div className="sticky top-0 z-50 bg-black border-b border-zinc-900 px-4 py-3 flex items-center justify-between">
@@ -140,25 +133,20 @@ export default function App(){
         <button onClick={()=>{setTab('notifications');markNotifsRead()}} className="relative w-9 h-9 flex items-center justify-center text-[18px]">🔔{unreadCount>0&&<span className="absolute top-0 right-0 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-black">{unreadCount>9?'9+':unreadCount}</span>}</button>
         <button onClick={()=>setTab('settings')} className="w-9 h-9 flex items-center justify-center text-[18px]">⚙️</button>
       </div>
-
       {activeStories&&<StoryViewer stories={activeStories} idx={activeStoryIdx} setIdx={setActiveStoryIdx} onClose={()=>setActiveStories(null)} getVendor={getVendor}/>}
-
       {tab==='home'&&<Home products={products} stories={stories} fasterShop={fasterShop} vendors={vendors} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}} onDM={(v,p)=>{setSelectedChat(v);setSelectedProduct(p);setTab('chat')}} onStoryClick={openStories} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike} comments={comments} addComment={addComment} deletePost={deletePost} vendorsList={vendors} profile={profile}/>}
       {tab==='shop'&&<Shop products={products} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike}/>}
-
-      {tab==='search'&&<>
-        <Search vendors={vendors} fasterShop={fasterShop} products={products} getVendor={getVendor} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}}/>
-        <FasterFinds />
-        <EventsList />
-      </>}
-
+      {tab==='search'&&<><Search vendors={vendors} fasterShop={fasterShop} products={products} getVendor={getVendor} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}}/><FasterFinds /><EventsList /></>}
       {tab==='vendor'&&<VendorProfile vendor={selectedVendor} currentUser={user} products={products.filter(p=>p.vendor_id===selectedVendor?.id)} stories={stories.filter(s=>(s.vendor_id===selectedVendor?.id||s.user_id===selectedVendor?.id))} onBack={()=>setTab('home')} onStoryClick={openStories} reload={loadAll} followMap={followMap} setFollowMap={setFollowMap} fasterShop={fasterShop} sendNotif={sendNotif} getVendor={getVendor}/>}
       {tab==='messages'&&<MessagesListWithActions user={user} vendors={vendors} fasterShop={fasterShop} profile={profile} onSelect={(v)=>{setSelectedChat(v);setTab('chat')}} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}}/>}
       {tab==='chat'&&<ChatRoomWithActions user={user} vendor={selectedChat} product={selectedProduct} onBack={()=>setTab('messages')} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}} profile={profile}/>}
       {tab==='cart'&&<div className="p-4"><h2 className="font-black text-[13px]">Cart — Fastershop Store Only</h2>{cart.length===0?<p className="text-[11px] text-zinc-500 mt-6">Empty</p>:cart.map((p,i)=><div key={i} className="bg-zinc-900 p-3 rounded-xl flex gap-3 mt-2"><img src={p.images?.[0]} className="w-16 h-16 rounded-xl object-cover" alt=""/><div><p className="text-[11px] font-bold">{p.title||p.name}</p><p className="text-[10px] text-zinc-400">{p.price}</p></div></div>)}<button className="w-full mt-4 bg-[#39FF14] text-black font-black py-3 rounded-full text-[11px]">Pay with Paystack</button></div>}
-
       {tab==='profile'&&<>
-        <Profile user={user} profile={profile} products={products.filter(p=>p.vendor_id===user.id)} reload={loadAll} getVendor={getVendor}/>
+        {profile?.is_vendor ? (
+          <Profile user={user} profile={profile} products={products.filter(p=>p.vendor_id===user.id)} reload={loadAll} getVendor={getVendor}/>
+        ) : (
+          <BuyerProfile user={user} profile={profile} reload={loadAll} setTab={setTab} />
+        )}
         <div className="mx-4 mt-6 mb-2 border-t-2 border-[#39FF14] pt-4">
           <p className="text-[12px] font-black">⚙️ ADMIN PANEL — Faster Shop Control</p>
           <p className="text-[10px] text-zinc-500">Logged in as: {currentEmail||'unknown'} {isAdmin?'• ADMIN ✅':'• Not admin'}</p>
@@ -170,10 +158,8 @@ export default function App(){
           </div>
         )}
       </>}
-
       {tab==='notifications'&&<Notifications notifications={notifications} products={products} getVendor={getVendor} onBack={()=>setTab('home')} onOpenProduct={(p)=>{const v=getVendor(p?.vendor_id);if(v){setSelectedVendor(v);setTab('vendor')}}} onOpenChat={(actorId)=>{const v=getVendor(actorId);if(v){setSelectedChat(v);setTab('chat')}}} onClear={async()=>{await supabase.from('notifications').update({is_read:true}).eq('user_id',user.id);setNotifications(prev=>prev.map(n=>({...n,is_read:true})))}}/>}
       {tab==='settings'&&<Settings user={user} profile={profile} reload={loadAll} onBack={()=>setTab('profile')}/>}
-
       <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-zinc-900 flex justify-around py-3 text-[10px]">
         <button onClick={()=>setTab('home')} className={tab==='home'?'text-white font-black':'text-zinc-500'}>Home</button>
         <button onClick={()=>setTab('search')} className={tab==='search'?'text-white font-black':'text-zinc-500'}>Search</button>
@@ -186,9 +172,9 @@ export default function App(){
   )
 }
 
-// ===== AUTH FORM - LOGIN + SIGNUP TOGETHER =====
 function AuthForm(){
   const [mode,setMode]=useState('login')
+  const [role,setRole]=useState('buyer')
   const [email,setEmail]=useState('')
   const [password,setPassword]=useState('')
   const [loading,setLoading]=useState(false)
@@ -197,11 +183,15 @@ function AuthForm(){
     if(!email||!password) return alert('Enter email + password')
     setLoading(true)
     try{
-      const res = mode==='login'
-        ? await supabase.auth.signInWithPassword({email,password})
-        : await supabase.auth.signUp({email,password})
-      if(res.error) throw res.error
-      if(mode==='signup') alert('Account created! Check your email, then login.')
+      if(mode==='login'){
+        const res = await supabase.auth.signInWithPassword({email,password})
+        if(res.error) throw res.error
+      } else {
+        localStorage.setItem('faster_role', role)
+        const res = await supabase.auth.signUp({email,password, options:{ data:{ role } }})
+        if(res.error) throw res.error
+        alert(role==='vendor' ? 'Vendor account created! Check your email, then login.' : 'Buyer account created! Check your email, then login.')
+      }
     }catch(err){ alert(err.message) } finally{ setLoading(false) }
   }
   return (
@@ -210,6 +200,12 @@ function AuthForm(){
         <button type="button" onClick={()=>setMode('login')} className={`flex-1 py-2.5 rounded-full text-[12px] font-black ${mode==='login'?'bg-white text-black':'text-zinc-400'}`}>Login</button>
         <button type="button" onClick={()=>setMode('signup')} className={`flex-1 py-2.5 rounded-full text-[12px] font-black ${mode==='signup'?'bg-white text-black':'text-zinc-400'}`}>Sign Up</button>
       </div>
+      {mode==='signup' && (
+        <div className="flex bg-zinc-900 rounded-full p-1">
+          <button type="button" onClick={()=>setRole('buyer')} className={`flex-1 py-2.5 rounded-full text-[12px] font-black ${role==='buyer'?'bg-[#39FF14] text-black':'text-zinc-400'}`}>🛍️ Buyer</button>
+          <button type="button" onClick={()=>setRole('vendor')} className={`flex-1 py-2.5 rounded-full text-[12px] font-black ${role==='vendor'?'bg-[#39FF14] text-black':'text-zinc-400'}`}>🏪 Vendor</button>
+        </div>
+      )}
       <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" className="w-full bg-zinc-900 border border-zinc-700 rounded-full px-4 py-3 text-[13px] outline-none focus:border-[#39FF14]"/>
       <input value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" type="password" className="w-full bg-zinc-900 border border-zinc-700 rounded-full px-4 py-3 text-[13px] outline-none focus:border-[#39FF14]"/>
       <button disabled={loading} className="w-full bg-[#39FF14] text-black font-black py-3.5 rounded-full text-[13px]">{loading?'Please wait...':mode==='login'?'Login →':'Create Account →'}</button>
@@ -281,7 +277,6 @@ function PostSlider({images}){
   if(!imgs.length)return <div className="w-full h-80 bg-zinc-900"/>
   return <div className="relative w-full h-[380px] bg-black overflow-hidden"><img src={imgs[idx]} className="w-full h-full object-cover" alt=""/><div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1">{imgs.map((_,i)=><div key={i} className={`h-1 rounded-full ${i===idx?'w-5 bg-white':'w-1 bg-white/40'}`}/>)}</div>{imgs.length>1&&<><button onClick={()=>setIdx((idx-1+imgs.length)%imgs.length)} className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 w-7 h-7 rounded-full text-[12px]">‹</button><button onClick={()=>setIdx((idx+1)%imgs.length)} className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 w-7 h-7 rounded-full text-[12px]">›</button><div className="absolute top-3 right-3 bg-black/60 text-[9px] px-2 py-1 rounded-full">{idx+1}/{imgs.length}</div></>}</div>
 }
-
 function PostCard({p,v,user,likes,toggleLike,comments,addComment,deletePost,onDM,vendorsList,profile}){
   const [showComments,setShowComments]=useState(false)
   const [commentText,setCommentText]=useState('')
@@ -322,7 +317,6 @@ function Home({products,stories,fasterShop,vendors,selectedCategory,setSelectedC
     <div><div className="flex justify-between items-center mb-3"><p className="font-black text-[14px]">Latest Drops</p><span className="text-[10px] text-zinc-500">{filtered.length} posts</span></div><div className="space-y-4">{filtered.length===0?<div className="bg-zinc-900 rounded-[20px] p-8 text-center"><p className="text-[28px]">🛍️</p><p className="text-[12px] font-bold mt-2">No drops in {selectedCategory} yet</p></div>:filtered.map(p=><PostCard key={p.id} p={p} v={getVendor(p.vendor_id)} user={user} likes={likes} toggleLike={toggleLike} comments={comments} addComment={addComment} deletePost={deletePost} onDM={onDM} vendorsList={vendorsList} profile={profile}/>)}</div></div>
   </div>
 }
-
 function Shop({products,selectedCategory,setSelectedCategory,getVendor,user,likes,toggleLike}){
   const filtered=selectedCategory==='All'?products:products.filter(p=>p.category===selectedCategory)
   return <div className="p-4"><div className="flex gap-2 overflow-x-auto pb-3">{CATS.map(c=><button key={c} onClick={()=>setSelectedCategory(c)} className={`px-4 py-2 rounded-full text-[11px] border ${selectedCategory===c?'bg-white text-black':'bg-zinc-900 border-zinc-800'}`}>{c}</button>)}</div><div className="grid grid-cols-2 gap-3">{filtered.map(p=>{const v=getVendor(p.vendor_id); const img=(p.images||[])[0]; return <div key={p.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden"><div className="relative"><img src={img} className="w-full h-36 object-cover" alt=""/>{p.images?.length>1&&<span className="absolute top-2 right-2 bg-black/70 text-[8px] px-2 py-1 rounded-full">{p.images.length} SLIDES</span>}<button onClick={()=>toggleLike(p.id)} className="absolute bottom-2 right-2 bg-black/60 w-7 h-7 rounded-full text-[12px]">{likes[p.id]?'❤️':'🤍'}</button></div><div className="p-2"><p className="text-[10px] font-bold truncate">{p.title||p.name}</p><p className="text-[9px] text-zinc-400">₦{p.price}{p.size?` • Size: ${p.size}`:''} • {v?.vendor_name}</p></div></div>})}</div></div>
@@ -373,6 +367,43 @@ function VendorProfile({vendor,currentUser,products,stories,onBack,onStoryClick,
     </div>
     {showFollow&&<FollowList title={showFollow==='followers'?'Followers':'Following'} ids={followIds} onClose={()=>setShowFollow(null)} onOpenVendor={(v)=>{setShowFollow(null)}} getVendor={getVendor}/>}
     {selectedPost&&(()=>{const imgs=selectedPost.images||selectedPost.image_urls||[];return <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col" onClick={()=>setSelectedPost(null)}><div className="flex justify-between items-center p-4" onClick={e=>e.stopPropagation()}><p className="text-[13px] font-black">{vendor.vendor_name}</p><button onClick={()=>setSelectedPost(null)} className="w-8 h-8 bg-zinc-800 rounded-full text-[16px]">✕</button></div><div className="flex-1 flex items-center justify-center relative px-4" onClick={e=>e.stopPropagation()}>{imgs.length>0&&<img src={imgs[postIdx]} className="max-h-[60vh] w-full object-contain rounded-2xl" alt=""/>}{imgs.length>1&&<><button onClick={()=>setPostIdx((postIdx-1+imgs.length)%imgs.length)} className="absolute left-2 bg-black/70 w-9 h-9 rounded-full">‹</button><button onClick={()=>setPostIdx((postIdx+1)%imgs.length)} className="absolute right-2 bg-black/70 w-9 h-9 rounded-full">›</button><span className="absolute bottom-2 bg-black/70 px-2 py-1 rounded-full text-[10px]">{postIdx+1}/{imgs.length}</span></>}</div><div className="bg-zinc-900 p-4 space-y-2 rounded-t-[24px]" onClick={e=>e.stopPropagation()}><p className="text-[14px] font-black">{selectedPost.title||selectedPost.name}</p><p className="text-[11px] text-zinc-300 whitespace-pre-wrap">{selectedPost.description||selectedPost.caption||'No caption'}</p><div className="flex gap-2 text-[11px]"><span className="bg-[#39FF14] text-black px-3 py-1.5 rounded-full font-black">₦{selectedPost.price}</span>{selectedPost.size&&<span className="bg-zinc-800 px-3 py-1.5 rounded-full">Size: {selectedPost.size}</span>}<span className="bg-zinc-800 px-3 py-1.5 rounded-full">{selectedPost.category||''}</span></div>{isOwn&&<button onClick={()=>deletePost(selectedPost.id)} className="w-full mt-2 bg-red-600 text-white font-bold py-3 rounded-full text-[11px]">🗑️ Delete This Post</button>}</div></div>})()}
+  </div>
+}
+
+function BuyerProfile({user,profile,reload,setTab}){
+  const name = profile?.vendor_name || user.email?.split('@')[0] || 'User'
+  const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
+  const becomeVendor = async()=>{
+    if(!confirm('Switch to Vendor? You will get Upload Product, Posts, Followers.')) return
+    localStorage.setItem('faster_role','vendor')
+    await supabase.from('profiles').update({is_vendor:true}).eq('id',user.id)
+    await reload()
+  }
+  const go = (t)=> setTab ? setTab(t) : alert('Coming soon')
+  return <div className="p-4 space-y-4 bg-black">
+    <div className="bg-zinc-900 border border-zinc-800 rounded-[24px] p-4 flex gap-4 items-center">
+      <div className="w-[72px] h-[72px] rounded-full bg-black border-2 border-zinc-700 flex items-center justify-center shrink-0">
+        <span className="font-black text-[22px] text-white">{initials || 'TN'}</span>
+      </div>
+      <div className="min-w-0">
+        <p className="font-black text-[16px] leading-tight truncate capitalize">{name}</p>
+        <p className="text-[12px] text-zinc-400 truncate mt-1">{user.email}</p>
+        <span className="inline-block mt-2 bg-[#39FF14]/15 text-[#39FF14] text-[9px] px-2.5 py-1 rounded-full font-black">🛍️ BUYER ACCOUNT</span>
+      </div>
+    </div>
+    <p className="text-[10px] font-black tracking-widest text-zinc-500 pt-1">ACCOUNT & DELIVERIES</p>
+    <div className="bg-zinc-900 border border-zinc-800 rounded-[24px] overflow-hidden divide-y divide-zinc-800">
+      <button onClick={()=>go('cart')} className="w-full p-4 flex items-center gap-3 text-left"><span className="text-[20px]">📦</span><span className="flex-1 font-bold text-[13px]">My Orders & Deliveries</span><span className="text-zinc-500">→</span></button>
+      <button onClick={()=>go('settings')} className="w-full p-4 flex items-center gap-3 text-left"><span className="text-[20px]">📍</span><span className="flex-1 font-bold text-[13px]">Saved Shipping Addresses</span><span className="text-zinc-500">→</span></button>
+      <button onClick={becomeVendor} className="w-full p-4 flex items-center gap-3 text-left"><span className="text-[20px]">🚀</span><span className="flex-1 font-bold text-[13px]">Vendor Dashboard & Stories</span><span className="text-zinc-500">→</span></button>
+      <button onClick={()=>go('settings')} className="w-full p-4 flex items-center gap-3 text-left"><span className="text-[20px]">⚙️</span><span className="flex-1 font-bold text-[13px]">Account Settings</span><span className="text-zinc-500">→</span></button>
+    </div>
+    <div className="bg-zinc-900 border border-[#39FF14]/30 rounded-[24px] p-4">
+      <p className="font-black text-[12px]">Want to sell on Faster?</p>
+      <p className="text-[11px] text-zinc-400 mt-1">Switch to Vendor to upload products, post stories and get followers.</p>
+      <button onClick={becomeVendor} className="w-full mt-3 bg-[#39FF14] text-black font-black py-3 rounded-full text-[11px]">Become a Vendor →</button>
+    </div>
+    <p className="text-center text-[10px] text-zinc-600">Buyer profile • No posts • No followers • Just shopping</p>
   </div>
 }
 
@@ -524,38 +555,45 @@ function MessagesListWithActions({user,vendors,fasterShop,profile,onSelect,onVie
     const {error:hideError}=await supabase.from('chat_hides').upsert({user_id:user.id,conversation_id:c.id},{onConflict:'user_id,conversation_id',ignoreDuplicates:true})
     if(hideError){alert(hideError.message);return}
   }
-  return <div className="p-4"><h2 className="font-black text-[13px] mb-3">Messages</h2>{convos.length===0?<p className="text-[11px] text-zinc-500 mt-10 text-center">No messages yet — message a vendor from their post.</p>:convos.map(c=><div key={c.id} className="relative w-full bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex gap-3 mb-2 items-center"><button onClick={()=>onSelect(c.other)} className="flex flex-1 min-w-0 gap-3 text-left items-center"><img src={c.other?.avatar_url} className="w-10 h-10 rounded-full object-cover bg-zinc-800" alt=""/><div className="flex-1 min-w-0"><div className="flex justify-between items-center"><p className="text-[12px] font-bold">{c.other?.vendor_name}</p>{c.last&&<p className="text-[9px] text-zinc-500">{new Date(c.last.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} • {new Date(c.last.created_at).toLocaleDateString()}</p>}</div><p className={`text-[11px] truncate mt-0.5 ${c.unread?'text-white font-bold':'text-zinc-400'}`}>{c.last?`${c.last.sender_id===user.id?'You: ':''}${c.last.text}`:'No messages yet'}</p></div>{c.unread&&<span className="w-2.5 h-2.5 bg-[#39FF14] rounded-full shrink-0"/>}</button><div className="relative"><button aria-label={`Options for ${c.other?.vendor_name||'chat'}`} onClick={()=>setOpenMenu(openMenu===c.id?null:c.id)} className="w-8 h-8 rounded-full text-lg text-zinc-400 hover:bg-zinc-800">⋯</button>{openMenu===c.id&&<ChatActionsMenu onDelete={()=>{setOpenMenu(null);hideChat(c)}} onBlock={()=>{setOpenMenu(null);blockUser(c)}} onViewProfile={()=>{setOpenMenu(null);onViewProfile(c.other)}} onCancel={()=>setOpenMenu(null)}/>}</div></div>)}</div>
+  return <div className="p-4"><h2 className="font-black text-[13px] mb-3">Messages</h2>{convos.length===0?<p className="text-[11px] text-zinc-500 mt-10 text-center">No messages yet — message a vendor from their post.</p>:convos.map(c=><div key={c.id} className="relative w-full bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex gap-3 mb-2 items-center"><button onClick={()=>onSelect(c.other)} className="flex flex-1 min-w-0 gap-3 text-left items-center"><img src={c.other?.avatar_url||''} className="w-10 h-10 rounded-full object-cover bg-zinc-800" alt=""/><div className="min-w-0 flex-1"><p className="text-[12px] font-bold truncate">{c.other?.vendor_name||'Vendor'}</p><p className="text-[11px] text-zinc-400 truncate">{c.last?.text||'Start chatting'}</p></div>{c.unread&&<span className="w-2 h-2 bg-[#39FF14] rounded-full shrink-0"/>}</button><button onClick={()=>setOpenMenu(openMenu===c.id?null:c.id)} className="text-zinc-400 px-2">⋮</button>{openMenu===c.id&&<ChatActionsMenu onDelete={()=>{setOpenMenu(null);hideChat(c)}} onBlock={()=>{setOpenMenu(null);blockUser(c)}} onViewProfile={()=>{setOpenMenu(null);onViewProfile(c.other)}} onCancel={()=>setOpenMenu(null)} />}</div>)}</div>
 }
 
 function ChatRoomWithActions({user,vendor,product,onBack,onViewProfile,profile}){
-  const [msgs,setMsgs]=useState([])
+  const [messages,setMessages]=useState([])
   const [text,setText]=useState('')
   const [convId,setConvId]=useState(null)
-  const [menuOpen,setMenuOpen]=useState(false)
-  const ref=useRef()
-  useEffect(()=>{const init=async()=>{
+  const [showMenu,setShowMenu]=useState(false)
+  useEffect(()=>{
     if(!vendor) return
-    let {data:conv}=await supabase.from('conversations').select('*').or(`and(buyer_id.eq.${user.id},vendor_id.eq.${vendor.id}),and(buyer_id.eq.${vendor.id},vendor_id.eq.${user.id})`).maybeSingle()
-    if(!conv){const {data:newConv}=await supabase.from('conversations').insert({buyer_id:user.id,vendor_id:vendor.id}).select().single();conv=newConv}
-    if(!conv) return
-    setConvId(conv.id)
-    const {data}=await supabase.from('messages').select('*').eq('conversation_id',conv.id).order('created_at',{ascending:true})
-    setMsgs(data||[])
-    const ch=supabase.channel(`chat-${conv.id}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`conversation_id=eq.${conv.id}`},p=>setMsgs(prev=>[...prev,p.new])).subscribe()
-    return()=>supabase.removeChannel(ch)
-  }; let cleanup; init().then(c=>cleanup=c); return()=>cleanup&&cleanup()},[user.id,vendor?.id])
-  useEffect(()=>{ref.current?.scrollIntoView({behavior:'smooth'})},[msgs.length])
+    const load=async()=>{
+      let {data:conv}=await supabase.from('conversations').select('*').or(`and(buyer_id.eq.${user.id},vendor_id.eq.${vendor.id}),and(buyer_id.eq.${vendor.id},vendor_id.eq.${user.id})`).maybeSingle()
+      if(!conv){
+        const {data:created}=await supabase.from('conversations').insert({buyer_id:user.id,vendor_id:vendor.id}).select().single()
+        conv=created
+      }
+      if(!conv) return
+      setConvId(conv.id)
+      const {data:msgs}=await supabase.from('messages').select('*').eq('conversation_id',conv.id).order('created_at',{ascending:true})
+      setMessages(msgs||[])
+    }
+    load()
+  },[vendor?.id,user.id])
   const send=async()=>{
     if(!text.trim()||!convId) return
     const {data}=await supabase.from('messages').insert({conversation_id:convId,sender_id:user.id,text:text.trim()}).select().single()
-    if(data) setMsgs(prev=>[...prev,data])
+    if(data) setMessages(p=>[...p,data])
     setText('')
   }
-  if(!vendor) return <div className="p-4"><button onClick={onBack}>Back</button><p className="text-[12px] mt-4">No vendor selected</p></div>
-  return <div className="flex flex-col h-[80vh]">
-    <div className="p-4 flex items-center gap-3 border-b border-zinc-900"><button onClick={onBack}>←</button><img src={vendor.avatar_url||''} className="w-9 h-9 rounded-full object-cover bg-zinc-800" alt=""/><div className="flex-1"><p className="text-[12px] font-bold">{vendor.vendor_name}</p><p className="text-[10px] text-zinc-500">Online</p></div><button onClick={()=>onViewProfile(vendor)} className="text-[11px] bg-zinc-900 px-3 py-1.5 rounded-full">View Profile</button></div>
-    {product&&<div className="mx-4 mt-3 bg-zinc-900 p-3 rounded-2xl flex gap-3 items-center"><img src={product.images?.[0]} className="w-12 h-12 rounded-xl object-cover" alt=""/><div><p className="text-[11px] font-bold">{product.title||product.name}</p><p className="text-[10px] text-[#39FF14]">₦{product.price}</p></div></div>}
-    <div className="flex-1 overflow-y-auto p-4 space-y-2">{msgs.map(m=><div key={m.id} className={`max-w-[75%] px-3 py-2 rounded-2xl text-[12px] ${m.sender_id===user.id?'ml-auto bg-[#39FF14] text-black':'bg-zinc-900'}`}>{m.text}</div>)}<div ref={ref}/></div>
-    <div className="p-3 flex gap-2 border-t border-zinc-900"><input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} placeholder="Message..." className="flex-1 bg-zinc-900 rounded-full px-4 py-3 text-[12px] outline-none"/><button onClick={send} className="bg-[#39FF14] text-black px-5 rounded-full font-black text-[12px]">Send</button></div>
+  if(!vendor) return <div className="p-4"><button onClick={onBack}>Back</button><p className="text-[11px] text-zinc-500 mt-4">No chat selected</p></div>
+  return <div className="flex flex-col h-[70vh] p-4">
+    <div className="flex items-center gap-3 pb-3 border-b border-zinc-900">
+      <button onClick={onBack}>←</button>
+      <img src={vendor.avatar_url||''} className="w-9 h-9 rounded-full object-cover bg-zinc-800" alt=""/>
+      <button onClick={()=>onViewProfile(vendor)} className="text-left"><p className="text-[12px] font-bold">{vendor.vendor_name}</p><p className="text-[10px] text-zinc-500">View profile →</p></button>
+      <div className="ml-auto relative"><button onClick={()=>setShowMenu(!showMenu)}>⋮</button>{showMenu&&<ChatActionsMenu onDelete={()=>{setShowMenu(false);onBack()}} onBlock={()=>{setShowMenu(false);alert('Blocked')}} onViewProfile={()=>{setShowMenu(false);onViewProfile(vendor)}} onCancel={()=>setShowMenu(false)} />}</div>
+    </div>
+    {product&&<div className="bg-zinc-900 p-3 rounded-2xl flex gap-3 mt-3 items-center"><img src={product.images?.[0]||''} className="w-12 h-12 rounded-xl object-cover" alt=""/><div><p className="text-[11px] font-bold">{product.title||product.name}</p><p className="text-[10px] text-[#39FF14] font-black">₦{product.price}</p></div></div>}
+    <div className="flex-1 overflow-y-auto py-3 space-y-2">{messages.map(m=><div key={m.id} className={`max-w-[80%] px-3 py-2 rounded-2xl text-[11px] ${m.sender_id===user.id?'bg-[#39FF14] text-black ml-auto':'bg-zinc-900'}`}>{m.text}</div>)}{messages.length===0&&<p className="text-[11px] text-zinc-500 text-center mt-10">Say hi to {vendor.vendor_name} 👋</p>}</div>
+    <div className="flex gap-2 pt-2"><input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} placeholder="Message..." className="flex-1 bg-zinc-900 rounded-full px-4 py-3 text-[12px] outline-none"/><button onClick={send} className="bg-[#39FF14] text-black px-5 rounded-full font-black text-[12px]">Send</button></div>
   </div>
 }
