@@ -5,6 +5,9 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 const CATS=['All','Men','Hoodies','Caps','Perfumes','Shoes','Bags']
 
+// --- ADMIN FIX: add BOTH your emails here, lowercase ---
+const ADMIN_EMAILS = ['terrence@faster.shop', 'terrence@fastersub.ng', 'terrence@fastershop.ng'];
+
 function useFollowerCounts(userId){
   const [counts,setCounts]=useState({followers:0,following:0})
   const refresh=useCallback(async()=>{
@@ -52,10 +55,13 @@ export default function App(){
   const [comments,setComments]=useState({})
   const [notifications,setNotifications]=useState([])
 
+  // --- ADMIN CHECK: checks BOTH auth email + profile email, case-insensitive ---
+  const currentEmail = (user?.email || profile?.email || '').toLowerCase().trim()
+  const isAdmin = ADMIN_EMAILS.includes(currentEmail) || profile?.is_faster_shop === true
+
   useEffect(()=>{supabase.auth.getSession().then(({data})=>setUser(data.session?.user||null));supabase.auth.onAuthStateChange((_e,s)=>setUser(s?.user||null))},[])
   useEffect(()=>{if(user)loadAll()},[user])
 
-  // LIVE notifications - no refresh needed, history kept forever
   useEffect(()=>{
     if(!user)return
     const ch=supabase.channel(`notifs-${user.id}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:`user_id=eq.${user.id}`},p=>setNotifications(prev=>[p.new,...prev])).subscribe()
@@ -64,7 +70,6 @@ export default function App(){
 
   const loadAll=async()=>{
     let {data:p}=await supabase.from('profiles').select('*').eq('id',user.id).maybeSingle()
-    // FIX UPLOAD FK ERROR: if user has Auth but no profile row, create it now
     if(!p){
       await supabase.from('profiles').upsert({id:user.id,email:user.email,is_vendor:true,vendor_name:user.email?.split('@')[0]||'Vendor'},{onConflict:'id'})
       const {data:p2}=await supabase.from('profiles').select('*').eq('id',user.id).maybeSingle()
@@ -86,7 +91,6 @@ export default function App(){
       const lm={};lk?.forEach(l=>lm[l.product_id]=true);setLikes(lm)
       const {data:cm}=await supabase.from('comments').select('*').order('created_at',{ascending:true})
       const cmap={};cm?.forEach(c=>{if(!cmap[c.product_id])cmap[c.product_id]=[];cmap[c.product_id].push(c)});setComments(cmap)
-      // History forever: 200 limit, never auto-deleted
       const {data:notifs}=await supabase.from('notifications').select('*').eq('user_id',user.id).order('created_at',{ascending:false}).limit(200)
       setNotifications(notifs||[])
     }
@@ -134,21 +138,38 @@ export default function App(){
 
       {tab==='home'&&<Home products={products} stories={stories} fasterShop={fasterShop} vendors={vendors} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}} onDM={(v,p)=>{setSelectedChat(v);setSelectedProduct(p);setTab('chat')}} onStoryClick={openStories} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike} comments={comments} addComment={addComment} deletePost={deletePost} vendorsList={vendors} profile={profile}/>}
       {tab==='shop'&&<Shop products={products} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike}/>}
-      {tab==='search'&&<Search vendors={vendors} fasterShop={fasterShop} products={products} getVendor={getVendor} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}}/>}
-      {tab==='search' && (
-  <>
-    <FasterFinds />
-    <EventsList />
-  </>
-)}
+      
+      {/* FIXED SEARCH: all in ONE block, so FasterFinds + Events show together */}
+      {tab==='search'&&<>
+        <Search vendors={vendors} fasterShop={fasterShop} products={products} getVendor={getVendor} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}}/>
+        <FasterFinds />
+        <EventsList />
+      </>}
+
       {tab==='vendor'&&<VendorProfile vendor={selectedVendor} currentUser={user} products={products.filter(p=>p.vendor_id===selectedVendor?.id)} stories={stories.filter(s=>(s.vendor_id===selectedVendor?.id||s.user_id===selectedVendor?.id))} onBack={()=>setTab('home')} onStoryClick={openStories} reload={loadAll} followMap={followMap} setFollowMap={setFollowMap} fasterShop={fasterShop} sendNotif={sendNotif} getVendor={getVendor}/>}
       {tab==='messages'&&<MessagesListWithActions user={user} vendors={vendors} fasterShop={fasterShop} profile={profile} onSelect={(v)=>{setSelectedChat(v);setTab('chat')}} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}}/>}
       {tab==='chat'&&<ChatRoomWithActions user={user} vendor={selectedChat} product={selectedProduct} onBack={()=>setTab('messages')} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}} profile={profile}/>}
       {tab==='cart'&&<div className="p-4"><h2 className="font-black text-[13px]">Cart — Fastershop Store Only</h2>{cart.length===0?<p className="text-[11px] text-zinc-500 mt-6">Empty</p>:cart.map((p,i)=><div key={i} className="bg-zinc-900 p-3 rounded-xl flex gap-3 mt-2"><img src={p.images?.[0]} className="w-16 h-16 rounded-xl object-cover" alt=""/><div><p className="text-[11px] font-bold">{p.title||p.name}</p><p className="text-[10px] text-zinc-400">{p.price}</p></div></div>)}<button className="w-full mt-4 bg-[#39FF14] text-black font-black py-3 rounded-full text-[11px]">Pay with Paystack</button></div>}
-      {tab==='profile'&&<Profile user={user} profile={profile} products={products.filter(p=>p.vendor_id===user.id)} reload={loadAll} getVendor={getVendor}/>}
+      
+      {/* FIXED PROFILE: Profile + AdminPanel in ONE block, with visible divider */}
+      {tab==='profile'&&<>
+        <Profile user={user} profile={profile} products={products.filter(p=>p.vendor_id===user.id)} reload={loadAll} getVendor={getVendor}/>
+        <div className="mx-4 mt-6 mb-2 border-t-2 border-[#39FF14] pt-4">
+          <p className="text-[12px] font-black">⚙️ ADMIN PANEL — Faster Shop Control</p>
+          <p className="text-[10px] text-zinc-500">Logged in as: {currentEmail || 'unknown'} {isAdmin ? '• ADMIN ✅' : '• Not admin'}</p>
+        </div>
+        {isAdmin ? (
+          <AdminPanel user={user} profile={profile} />
+        ) : (
+          <div className="mx-4 bg-zinc-900 border border-zinc-800 p-4 rounded-2xl">
+            <p className="text-[11px] font-bold">Admin Panel hidden</p>
+            <p className="text-[11px] text-zinc-400 mt-1">You are logged in as <b>{currentEmail}</b>. To see Admin, login with terrence@faster.shop — or tell me your correct admin email and I will add it to ADMIN_EMAILS at the top of App.jsx.</p>
+          </div>
+        )}
+      </>}
+
       {tab==='notifications'&&<Notifications notifications={notifications} products={products} getVendor={getVendor} onBack={()=>setTab('home')} onOpenProduct={(p)=>{const v=getVendor(p?.vendor_id);if(v){setSelectedVendor(v);setTab('vendor')}}} onOpenChat={(actorId)=>{const v=getVendor(actorId);if(v){setSelectedChat(v);setTab('chat')}}} onClear={async()=>{await supabase.from('notifications').update({is_read:true}).eq('user_id',user.id);setNotifications(prev=>prev.map(n=>({...n,is_read:true})))}}/>}
       {tab==='settings'&&<Settings user={user} profile={profile} reload={loadAll} onBack={()=>setTab('profile')}/>}
-      {tab==='profile' && <AdminPanel user={user} />} 
 
       <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-zinc-900 flex justify-around py-3 text-[10px]">
         <button onClick={()=>setTab('home')} className={tab==='home'?'text-white font-black':'text-zinc-500'}>Home</button>
