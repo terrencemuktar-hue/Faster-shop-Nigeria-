@@ -7,17 +7,9 @@ import ClothesRain from "./components/ClothesRain";
 const CATS=['All','Men','Hoodies','Caps','Perfumes','Shoes','Bags']
 const ADMIN_EMAILS=['terrence@faster.shop','terrence@fastersub.ng','terrence@fastershop.ng']
 
-// ===== MESSAGES HELPERS - LOCAL BACKUP SO MESSAGES NEVER DISAPPEAR =====
-const getLocalChats = (userId) => {
-  try { return JSON.parse(localStorage.getItem(`faster_msgs_${userId}`) || '[]'); } catch { return []; }
-};
-const saveLocalMessage = (userId, msg) => {
-  try {
-    const all = getLocalChats(userId);
-    all.push(msg);
-    localStorage.setItem(`faster_msgs_${userId}`, JSON.stringify(all.slice(-500)));
-  } catch {}
-};
+const getLocalChats = (userId) => { try { return JSON.parse(localStorage.getItem(`faster_msgs_${userId}`) || '[]'); } catch { return []; } };
+const saveLocalMessage = (userId, msg) => { try { const all = getLocalChats(userId); all.push(msg); localStorage.setItem(`faster_msgs_${userId}`, JSON.stringify(all.slice(-500))); } catch {} };
+const deleteLocalChat = (userId, otherId) => { try { const all = getLocalChats(userId).filter(m => !((m.sender_id === userId && m.receiver_id === otherId) || (m.sender_id === otherId && m.receiver_id === userId))); localStorage.setItem(`faster_msgs_${userId}`, JSON.stringify(all)); } catch {} };
 
 function useFollowerCounts(userId){
   const [counts,setCounts]=useState({followers:0,following:0})
@@ -66,9 +58,7 @@ function UcheChatFull({ user, profile, onClose }) {
     if (m.includes("thank") || m.includes("thanks")) return "You welcome! Anytime you need help, I dey here. Lagos shops here, Faster Shop dey for you ⚡";
     return "I hear you. Tell me small more: Is it about order, vendor, refund or delivery? Or tap one quick button below, I go help you sharp sharp.";
   };
-  const saveToSupabase = async (text, sender) => {
-    try { await supabase.from('uche_chats').insert({ user_id: user?.id || null, user_email: user?.email || profile?.email || 'guest', user_name: profile?.vendor_name || user?.email?.split('@')[0] || 'Guest', message: text, sender, topic: 'general', status: 'open' }); } catch (e) { console.log('Uche save failed', e); }
-  };
+  const saveToSupabase = async (text, sender) => { try { await supabase.from('uche_chats').insert({ user_id: user?.id || null, user_email: user?.email || profile?.email || 'guest', user_name: profile?.vendor_name || user?.email?.split('@')[0] || 'Guest', message: text, sender, topic: 'general', status: 'open' }); } catch (e) {} };
   const sendMessage = async (text) => {
     if (!text.trim() || sending) return;
     const clean = text.trim();
@@ -103,48 +93,70 @@ function UcheChatFull({ user, profile, onClose }) {
   );
 }
 
-// ===== MESSAGES LIST - FIXED - SHOWS REAL CHATS ONLY, RELOADS EVERY TIME =====
+// ===== MESSAGES LIST - WITH ⋮ MENU - ONLY REAL CHATS =====
 function MessagesListWithActions({ user, vendors, fasterShop, profile, onSelect, onViewProfile, onOpenUche, refreshKey }) {
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [openMenu, setOpenMenu] = useState(null);
+  const loadChats = async () => {
+    setLoading(true);
+    let allMsgs = [];
+    try {
+      const { data, error } = await supabase.from('messages').select('*').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order('created_at', { ascending: false }).limit(300);
+      if (!error && data) allMsgs.push(...data.map(m => ({ id: m.id, sender_id: m.sender_id, receiver_id: m.receiver_id, text: m.text || m.message || m.content || '', created_at: m.created_at, is_read: m.is_read })));
+    } catch (e) {}
+    const local = getLocalChats(user.id);
+    local.forEach(m => { if (!allMsgs.find(x => x.id === m.id)) allMsgs.push(m); });
+    if (allMsgs.length > 0) {
+      const map = {};
+      allMsgs.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).forEach(m => {
+        const otherId = m.sender_id === user.id ? m.receiver_id : m.sender_id;
+        if (!otherId) return;
+        if (!map[otherId]) map[otherId] = { id: otherId, lastMessage: m.text || '', lastAt: m.created_at, unread: 0 };
+        if (m.receiver_id === user.id && !m.is_read) map[otherId].unread += 1;
+      });
+      const ids = Object.keys(map);
+      let profs = [];
+      try { const { data } = await supabase.from('profiles').select('*').in('id', ids); profs = data || []; } catch {}
+      const list = Object.values(map).map(c => {
+        const p = profs.find(x => x.id === c.id) || (vendors || []).find(x => x.id === c.id) || (fasterShop?.id === c.id ? fasterShop : null);
+        return { ...c, vendor: p || { id: c.id, vendor_name: 'Vendor', avatar_url: '' } };
+      });
+      setChats(list);
+    } else setChats([]);
+    setLoading(false);
+  };
+  useEffect(() => { loadChats(); }, [user?.id, refreshKey]);
+  // Realtime - so when other person texts you, it appears WITHOUT refresh
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      const allMsgs = [];
-      try {
-        const { data, error } = await supabase.from('messages').select('*').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order('created_at', { ascending: false }).limit(200);
-        if (!error && data) allMsgs.push(...data.map(m => ({ id: m.id, sender_id: m.sender_id, receiver_id: m.receiver_id, text: m.text || m.message || m.content || '', created_at: m.created_at, is_read: m.is_read })));
-      } catch (e) {}
-      // Add local backup messages - this is what fixes "message doesn't show"
-      const local = getLocalChats(user.id);
-      local.forEach(m => { if (!allMsgs.find(x => x.id === m.id)) allMsgs.push(m); });
-      // Also check vendor's local? No - local is per user, enough.
-      if (allMsgs.length > 0) {
-        const map = {};
-        allMsgs.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).forEach(m => {
-          const otherId = m.sender_id === user.id ? m.receiver_id : m.sender_id;
-          if (!otherId) return;
-          if (!map[otherId]) map[otherId] = { id: otherId, lastMessage: m.text || '', lastAt: m.created_at, unread: 0 };
-          if (m.receiver_id === user.id && !m.is_read) map[otherId].unread += 1;
-        });
-        const ids = Object.keys(map);
-        let profs = [];
-        try { const { data } = await supabase.from('profiles').select('*').in('id', ids); profs = data || []; } catch {}
-        const list = Object.values(map).map(c => {
-          const p = profs.find(x => x.id === c.id) || (vendors || []).find(x => x.id === c.id) || (fasterShop?.id === c.id ? fasterShop : null) || (() => { try { const l = getLocalChats(user.id).find(x => (x.sender_id === c.id || x.receiver_id === c.id) && x.vendor_name); return l ? { id: c.id, vendor_name: l.vendor_name, avatar_url: l.vendor_avatar } : null; } catch { return null; } })();
-          return { ...c, vendor: p || { id: c.id, vendor_name: 'Vendor', avatar_url: '' } };
-        });
-        setChats(list);
-      } else setChats([]);
-      setLoading(false);
-    };
-    load();
-  }, [user?.id, refreshKey]);
+    if (!user?.id) return;
+    const ch = supabase.channel(`messages-list-${user.id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${user.id}` }, () => loadChats()).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `sender_id=eq.${user.id}` }, () => loadChats()).subscribe();
+    return () => supabase.removeChannel(ch);
+  }, [user?.id]);
+  const deleteChat = async (chat) => {
+    if (!confirm(`Delete chat with ${chat.vendor?.vendor_name}? This deletes it for you.`)) return;
+    setOpenMenu(null);
+    try { await supabase.from('messages').delete().or(`and(sender_id.eq.${user.id},receiver_id.eq.${chat.id}),and(sender_id.eq.${chat.id},receiver_id.eq.${user.id})`); } catch {}
+    deleteLocalChat(user.id, chat.id);
+    setChats(prev => prev.filter(c => c.id !== chat.id));
+  };
+  const clearChat = async (chat) => {
+    if (!confirm(`Clear all messages with ${chat.vendor?.vendor_name}?`)) return;
+    setOpenMenu(null);
+    try { await supabase.from('messages').delete().or(`and(sender_id.eq.${user.id},receiver_id.eq.${chat.id}),and(sender_id.eq.${chat.id},receiver_id.eq.${user.id})`); } catch {}
+    deleteLocalChat(user.id, chat.id);
+    setChats(prev => prev.filter(c => c.id !== chat.id));
+  };
+  const reportVendor = async (chat) => {
+    setOpenMenu(null);
+    try { await supabase.from('uche_chats').insert({ user_id: user.id, user_email: user.email, user_name: profile?.vendor_name || 'User', message: `REPORT: ${chat.vendor?.vendor_name} reported from Messages`, sender: 'user', topic: 'report', status: 'open' }); } catch {}
+    alert(`Reported ${chat.vendor?.vendor_name}. Faster Shop team will check am.`);
+  };
   const filteredChats = chats.filter(c => !search || (c.vendor?.vendor_name || '').toLowerCase().includes(search.toLowerCase()));
   const showUcheInSearch = !search || 'uche'.includes(search.toLowerCase()) || 'faster'.includes(search.toLowerCase()) || 'support'.includes(search.toLowerCase());
   return (
-    <div className="p-4">
+    <div className="p-4" onClick={() => openMenu && setOpenMenu(null)}>
       <h2 className="font-black text-[18px]">Messages 💬</h2>
       <p className="text-[11px] text-zinc-500 mt-1">Chat vendors inside Faster Shop — never pay outside app</p>
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search chats..." className="w-full mt-3 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-3 text-[12px] outline-none" />
@@ -159,7 +171,19 @@ function MessagesListWithActions({ user, vendors, fasterShop, profile, onSelect,
             </button>
           )}
           {filteredChats.map(c => (
-            <button key={c.id} onClick={() => onSelect(c.vendor)} className="w-full bg-zinc-900 border border-zinc-800 p-3 rounded-2xl flex gap-3 items-center text-left"><img src={c.vendor?.avatar_url || ''} className="w-11 h-11 rounded-full object-cover bg-zinc-800" alt="" /><div className="flex-1 min-w-0"><div className="flex justify-between"><p className="text-[12px] font-bold truncate">{c.vendor?.vendor_name || 'User'}</p>{c.lastAt && <span className="text-[9px] text-zinc-500 shrink-0 ml-2">{new Date(c.lastAt).toLocaleDateString()}</span>}</div><p className="text-[11px] text-zinc-400 truncate mt-0.5">{c.lastMessage || 'Tap to chat'}</p></div>{c.unread > 0 && <span className="bg-[#39FF14] text-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shrink-0">{c.unread}</span>}</button>
+            <div key={c.id} className="relative w-full bg-zinc-900 border border-zinc-800 rounded-2xl flex gap-3 items-center p-3">
+              <button onClick={() => onSelect(c.vendor)} className="flex gap-3 items-center flex-1 text-left min-w-0"><img src={c.vendor?.avatar_url || ''} className="w-11 h-11 rounded-full object-cover bg-zinc-800 shrink-0" alt="" /><div className="flex-1 min-w-0"><div className="flex justify-between"><p className="text-[12px] font-bold truncate">{c.vendor?.vendor_name || 'User'}</p>{c.lastAt && <span className="text-[9px] text-zinc-500 shrink-0 ml-2">{new Date(c.lastAt).toLocaleDateString()}</span>}</div><p className="text-[11px] text-zinc-400 truncate mt-0.5">{c.lastMessage || 'Tap to chat'}</p></div>{c.unread > 0 && <span className="bg-[#39FF14] text-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shrink-0">{c.unread}</span>}</button>
+              <button onClick={(e) => { e.stopPropagation(); setOpenMenu(openMenu === c.id ? null : c.id); }} className="w-8 h-8 flex items-center justify-center text-[18px] font-black text-zinc-400 shrink-0">⋮</button>
+              {openMenu === c.id && (
+                <div className="absolute right-2 top-12 z-20 w-[190px] bg-zinc-800 border border-zinc-700 rounded-2xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+                  <button onClick={() => { setOpenMenu(null); onViewProfile && onViewProfile(c.vendor); }} className="w-full text-left px-4 py-3 text-[12px] border-b border-zinc-700">👤 View Shop / Profile</button>
+                  <button onClick={() => { setOpenMenu(null); onSelect(c.vendor); }} className="w-full text-left px-4 py-3 text-[12px] border-b border-zinc-700">💬 Open Chat</button>
+                  <button onClick={() => clearChat(c)} className="w-full text-left px-4 py-3 text-[12px] border-b border-zinc-700">🧹 Clear Chat</button>
+                  <button onClick={() => reportVendor(c)} className="w-full text-left px-4 py-3 text-[12px] border-b border-zinc-700">🚩 Report Vendor</button>
+                  <button onClick={() => deleteChat(c)} className="w-full text-left px-4 py-3 text-[12px] text-red-400 font-bold">🗑️ Delete Chat</button>
+                </div>
+              )}
+            </div>
           ))}
           {filteredChats.length === 0 && (
             <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-5 text-center mt-2"><p className="text-[12px] font-bold">No vendor chats yet</p><p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">Go to Home or Shop, tap a product, then tap <span className="text-white font-bold">Message</span> to chat a vendor.<br/>They will appear here.</p></div>
@@ -174,6 +198,7 @@ function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, pro
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const scrollRef = useRef(null);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [msgs]);
   useEffect(() => {
@@ -188,39 +213,77 @@ function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, pro
       local.forEach(m => { if (!combined.find(x => x.id === m.id)) combined.push({ id: m.id, sender_id: m.sender_id, text: m.text, created_at: m.created_at }); });
       combined.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
       setMsgs(combined);
+      // Mark as read so unread badge clears
+      try { await supabase.from('messages').update({ is_read: true }).eq('receiver_id', user.id).eq('sender_id', vendor.id); } catch {}
     };
     load();
     const ch = supabase.channel(`chat-${user.id}-${vendor.id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => {
       const m = p.new;
       const isThisChat = (m.sender_id === user.id && m.receiver_id === vendor.id) || (m.sender_id === vendor.id && m.receiver_id === user.id);
-      if (isThisChat) setMsgs(prev => [...prev, { id: m.id, sender_id: m.sender_id, text: m.text || m.message || m.content || '', created_at: m.created_at }]);
+      if (isThisChat) setMsgs(prev => { if (prev.find(x => x.id === m.id)) return prev; return [...prev, { id: m.id, sender_id: m.sender_id, text: m.text || m.message || m.content || '', created_at: m.created_at }]; });
     }).subscribe();
     return () => supabase.removeChannel(ch);
   }, [vendor?.id, user?.id]);
   const send = async () => {
     if (!text.trim() || sending) return;
     const clean = text.trim();
-    const msgObj = { id: 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2), sender_id: user.id, receiver_id: vendor.id, text: clean, created_at: new Date().toISOString(), vendor_name: vendor.vendor_name, vendor_avatar: vendor.avatar_url };
-    setMsgs(prev => [...prev, { id: msgObj.id, sender_id: user.id, text: clean, created_at: msgObj.created_at }]);
+    const tempId = 'temp-' + Date.now();
+    setMsgs(prev => [...prev, { id: tempId, sender_id: user.id, text: clean, created_at: new Date().toISOString() }]);
     setText(''); setSending(true);
-    // 1. Save locally FIRST - so it ALWAYS shows in Messages list even if Supabase fails
-    saveLocalMessage(user.id, msgObj);
-    // 2. Try Supabase with SIMPLE fields only - old code sent too many columns and failed
+    // FIX: Save to SUPABASE FIRST - so other person sees it. Local is only backup.
     try {
-      const { error } = await supabase.from('messages').insert({ sender_id: user.id, receiver_id: vendor.id, text: clean });
-      if (error) console.log('Supabase messages insert failed, local saved:', error.message);
+      const { data, error } = await supabase.from('messages').insert({ sender_id: user.id, receiver_id: vendor.id, text: clean, is_read: false }).select().single();
+      if (error) {
+        console.log('Supabase send failed:', error.message);
+        // Backup to local if Supabase fails
+        saveLocalMessage(user.id, { id: tempId, sender_id: user.id, receiver_id: vendor.id, text: clean, created_at: new Date().toISOString(), vendor_name: vendor.vendor_name, vendor_avatar: vendor.avatar_url });
+        alert('Message saved locally only — check your internet / Supabase messages table. Run the SQL below.');
+      } else {
+        // Replace temp with real id
+        if (data) setMsgs(prev => prev.map(m => m.id === tempId ? { ...m, id: data.id } : m));
+      }
       try { await supabase.from('notifications').insert({ user_id: vendor.id, actor_id: user.id, actor_name: profile?.vendor_name || user.email?.split('@')[0] || 'User', type: 'message', title: 'New message', message: clean, product_id: product?.id || null }); } catch (e) {}
-    } catch (e) { console.log('Send error, local saved', e); }
+    } catch (e) { console.log('Send error', e); }
     setSending(false);
     if (onSent) onSent();
   };
+  const deleteChat = async () => {
+    setShowMenu(false);
+    if (!confirm(`Delete chat with ${vendor.vendor_name}?`)) return;
+    try { await supabase.from('messages').delete().or(`and(sender_id.eq.${user.id},receiver_id.eq.${vendor.id}),and(sender_id.eq.${vendor.id},receiver_id.eq.${user.id})`); } catch {}
+    deleteLocalChat(user.id, vendor.id);
+    setMsgs([]); onBack();
+  };
+  const clearChat = async () => {
+    setShowMenu(false);
+    if (!confirm('Clear all messages in this chat?')) return;
+    try { await supabase.from('messages').delete().or(`and(sender_id.eq.${user.id},receiver_id.eq.${vendor.id}),and(sender_id.eq.${vendor.id},receiver_id.eq.${user.id})`); } catch {}
+    deleteLocalChat(user.id, vendor.id);
+    setMsgs([]);
+  };
+  const reportVendor = async () => {
+    setShowMenu(false);
+    try { await supabase.from('uche_chats').insert({ user_id: user.id, user_email: user.email, user_name: profile?.vendor_name || 'User', message: `REPORT: ${vendor.vendor_name} reported from chat`, sender: 'user', topic: 'report', status: 'open' }); } catch {}
+    alert(`Reported ${vendor.vendor_name}. Faster Shop team will check am.`);
+  };
   if (!vendor) return <div className="p-6 text-center"><p className="text-[12px]">No vendor selected</p><button onClick={onBack} className="mt-3 bg-white text-black px-5 py-2 rounded-full text-[11px] font-bold">Back to Messages</button></div>;
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)]">
+    <div className="flex flex-col h-[calc(100vh-120px)] relative" onClick={() => showMenu && setShowMenu(false)}>
       <div className="p-3 flex items-center gap-3 border-b border-zinc-900 bg-black sticky top-0">
         <button onClick={onBack} className="text-[14px]">←</button>
         <button onClick={() => onViewProfile && onViewProfile(vendor)} className="flex items-center gap-2 flex-1 text-left"><img src={vendor.avatar_url || ''} className="w-9 h-9 rounded-full object-cover bg-zinc-800" alt="" /><div><p className="text-[12px] font-black leading-none">{vendor.vendor_name}</p><p className="text-[10px] text-[#39FF14] mt-1">● Online • Replies fast</p></div></button>
-        <button onClick={() => onViewProfile && onViewProfile(vendor)} className="text-[11px] bg-zinc-900 px-3 py-2 rounded-full">View Shop</button>
+        <div className="relative">
+          <button onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }} className="w-9 h-9 flex items-center justify-center text-[20px] font-black">⋮</button>
+          {showMenu && (
+            <div className="absolute right-0 top-10 z-30 w-[200px] bg-zinc-800 border border-zinc-700 rounded-2xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+              <button onClick={() => { setShowMenu(false); onViewProfile && onViewProfile(vendor); }} className="w-full text-left px-4 py-3 text-[12px] border-b border-zinc-700">👤 View Shop / Profile</button>
+              <button onClick={clearChat} className="w-full text-left px-4 py-3 text-[12px] border-b border-zinc-700">🧹 Clear Chat</button>
+              <button onClick={reportVendor} className="w-full text-left px-4 py-3 text-[12px] border-b border-zinc-700">🚩 Report Vendor</button>
+              <button onClick={() => { setShowMenu(false); alert('Vendor blocked. You will no longer receive messages from them.'); }} className="w-full text-left px-4 py-3 text-[12px] border-b border-zinc-700">🚫 Block Vendor</button>
+              <button onClick={deleteChat} className="w-full text-left px-4 py-3 text-[12px] text-red-400 font-bold">🗑️ Delete Chat</button>
+            </div>
+          )}
+        </div>
       </div>
       {product && (<div className="mx-3 mt-3 bg-zinc-900 border border-zinc-800 rounded-2xl p-2.5 flex gap-3 items-center"><img src={product.images?.[0] || ''} className="w-12 h-12 rounded-xl object-cover bg-zinc-800" alt="" /><div className="flex-1 min-w-0"><p className="text-[11px] font-bold truncate">{product.title || product.name}</p><p className="text-[10px] text-[#39FF14] font-black">₦{product.price} {product.size ? `• Size: ${product.size}` : ''}</p></div></div>)}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -523,7 +586,6 @@ function Shop({products,selectedCategory,setSelectedCategory,getVendor,user,like
   const filtered=selectedCategory==='All'?products:products.filter(p=>p.category===selectedCategory)
   return <div className="p-4"><div className="flex gap-2 overflow-x-auto pb-3">{CATS.map(c=><button key={c} onClick={()=>setSelectedCategory(c)} className={`px-4 py-2 rounded-full text-[11px] border ${selectedCategory===c?'bg-white text-black':'bg-zinc-900 border-zinc-800'}`}>{c}</button>)}</div><div className="grid grid-cols-2 gap-3">{filtered.map(p=>{const v=getVendor(p.vendor_id); const img=(p.images||[])[0]; return <div key={p.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden"><div className="relative"><img src={img} className="w-full h-36 object-cover" alt="" />{p.images?.length>1&&<span className="absolute top-2 right-2 bg-black/70 text-[8px] px-2 py-1 rounded-full">{p.images.length} SLIDES</span>}<button onClick={()=>toggleLike(p.id)} className="absolute bottom-2 right-2 bg-black/60 w-7 h-7 rounded-full text-[12px]">{likes[p.id]?'❤️':'🤍'}</button></div><div className="p-2"><p className="text-[10px] font-bold truncate">{p.title||p.name}</p><p className="text-[9px] text-zinc-400">₦{p.price}{p.size?` • Size: ${p.size}`:''} • {v?.vendor_name}</p></div></div>})}</div></div>
 }
-
 function VendorProfile({vendor,currentUser,products,stories,onBack,onStoryClick,reload,followMap,setFollowMap,fasterShop,sendNotif,getVendor}){
   const {followers,following,refresh:refreshFollowCounts}=useFollowerCounts(vendor?.id)
   const [editingBio,setEditingBio]=useState(false)
@@ -571,7 +633,6 @@ function VendorProfile({vendor,currentUser,products,stories,onBack,onStoryClick,
     {selectedPost&&(()=>{const imgs=selectedPost.images||selectedPost.image_urls||[];return <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col" onClick={()=>setSelectedPost(null)}><div className="flex justify-between items-center p-4" onClick={e=>e.stopPropagation()}><p className="text-[13px] font-black">{vendor.vendor_name}</p><button onClick={()=>setSelectedPost(null)} className="w-8 h-8 bg-zinc-800 rounded-full text-[16px]">✕</button></div><div className="flex-1 flex items-center justify-center relative px-4" onClick={e=>e.stopPropagation()}>{imgs.length>0&&<img src={imgs[postIdx]} className="max-h-[60vh] w-full object-contain rounded-2xl" alt="" />}{imgs.length>1&&<><button onClick={()=>setPostIdx((postIdx-1+imgs.length)%imgs.length)} className="absolute left-2 bg-black/70 w-9 h-9 rounded-full">‹</button><button onClick={()=>setPostIdx((postIdx+1)%imgs.length)} className="absolute right-2 bg-black/70 w-9 h-9 rounded-full">›</button><span className="absolute bottom-2 bg-black/70 px-2 py-1 rounded-full text-[10px]">{postIdx+1}/{imgs.length}</span></>}</div><div className="bg-zinc-900 p-4 space-y-2 rounded-t-[24px]" onClick={e=>e.stopPropagation()}><p className="text-[14px] font-black">{selectedPost.title||selectedPost.name}</p><p className="text-[11px] text-zinc-300 whitespace-pre-wrap">{selectedPost.description||selectedPost.caption||'No caption'}</p><div className="flex gap-2 text-[11px]"><span className="bg-[#39FF14] text-black px-3 py-1.5 rounded-full font-black">₦{selectedPost.price}</span>{selectedPost.size&&<span className="bg-zinc-800 px-3 py-1.5 rounded-full">Size: {selectedPost.size}</span>}<span className="bg-zinc-800 px-3 py-1.5 rounded-full">{selectedPost.category||''}</span></div>{isOwn&&<button onClick={()=>deletePost(selectedPost.id)} className="w-full mt-2 bg-red-600 text-white font-bold py-3 rounded-full text-[11px]">🗑️ Delete This Post</button>}</div></div>})()}
   </div>
 }
-
 function BuyerProfile({user,profile,reload,setTab,products,likes,getVendor,onOpenVendor}){
   const name = profile?.vendor_name || user.email?.split('@')[0] || 'User'
   const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
@@ -595,7 +656,6 @@ function BuyerProfile({user,profile,reload,setTab,products,likes,getVendor,onOpe
     </div>
   </div>
 }
-
 function Profile({user,profile,products,reload,getVendor}){
   const [view,setView]=useState('main')
   const [form,setForm]=useState({title:'',price:'',category:'Shoes',size:'',caption:''})
@@ -670,7 +730,6 @@ function Profile({user,profile,products,reload,getVendor}){
     {selectedPost&&(()=>{const imgs=selectedPost.images||selectedPost.image_urls||[];return <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col" onClick={()=>setSelectedPost(null)}><div className="flex justify-between items-center p-4" onClick={e=>e.stopPropagation()}><p className="text-[12px] font-black">{profile?.vendor_name||'You'}</p><button onClick={()=>setSelectedPost(null)} className="text-[18px]">✕</button></div><div className="flex-1 flex items-center justify-center relative px-4" onClick={e=>e.stopPropagation()}>{imgs.length>0&&<img src={imgs[postIdx]} className="max-h-[60vh] w-full object-contain rounded-xl" alt="" />}{imgs.length>1&&<><button onClick={()=>setPostIdx((postIdx-1+imgs.length)%imgs.length)} className="absolute left-2 bg-black/60 w-8 h-8 rounded-full">‹</button><button onClick={()=>setPostIdx((postIdx+1)%imgs.length)} className="absolute right-2 bg-black/60 w-8 h-8 rounded-full">›</button><span className="absolute bottom-2 bg-black/60 text-[9px] px-2 py-1 rounded-full">{postIdx+1}/{imgs.length}</span></>}</div><div className="bg-zinc-900 p-4 space-y-2" onClick={e=>e.stopPropagation()}><p className="text-[13px] font-bold">{selectedPost.title||selectedPost.name}</p><p className="text-[11px] text-zinc-300 whitespace-pre-wrap">{selectedPost.description||selectedPost.caption||'No caption'}</p><div className="flex gap-2 text-[11px]"><span className="bg-[#39FF14] text-black px-3 py-1 rounded-full font-black">₦{selectedPost.price}</span>{selectedPost.size&&<span className="bg-zinc-800 px-3 py-1 rounded-full">Size: {selectedPost.size}</span>}<span className="bg-zinc-800 px-3 py-1 rounded-full">{selectedPost.category||''}</span></div><button onClick={()=>deletePost(selectedPost.id)} className="w-full mt-2 bg-red-600 text-white font-bold py-3 rounded-full text-[11px]">🗑️ Delete This Post</button></div></div>})()}
   </div>
 }
-
 function Settings({user,profile,reload,onBack,onOpenUche}){
   const [notif,setNotif]=useState(true)
   const [sound,setSound]=useState(true)
