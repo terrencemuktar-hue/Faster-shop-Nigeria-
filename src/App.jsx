@@ -17,14 +17,23 @@ async function ensureProfilePreserve(user) {
   if (error) return existing;
   return data;
 }
+function isFasterShopVendor(v) {
+  if (!v) return false;
+  if (v.is_faster_shop === true) return true;
+  const name = String(v.vendor_name || '').toLowerCase();
+  const email = String(v.email || '').toLowerCase();
+  if (name.includes('faster') || name.includes('fastershop')) return true;
+  if (email.includes('faster') || email.includes('terrence')) return true;
+  return false;
+}
 function VerifiedBadge({ vendor, size = 14 }) {
-  const isVerified = vendor?.is_verified === true || vendor?.is_faster_shop === true;
+  const isVerified = vendor?.is_verified === true || vendor?.is_faster_shop === true || isFasterShopVendor(vendor);
   if (!isVerified) return null;
   return (
     <span title="Verified by Faster Shop" style={{ width: size, height: size, fontSize: size * 0.6 }} className="inline-flex items-center justify-center rounded-full bg-[#FFD700] text-black font-black border border-black shrink-0 ml-1 align-middle">✓</span>
   );
 }
-function isVerifiedVendor(v) { return v?.is_verified === true || v?.is_faster_shop === true; }
+function isVerifiedVendor(v) { return v?.is_verified === true || v?.is_faster_shop === true || isFasterShopVendor(v); }
 function Avatar({ user, size = 40, onClick }) {
   const name = user?.vendor_name || user?.email?.split('@')[0] || 'User';
   const letter = (name.trim()[0] || 'U').toUpperCase();
@@ -320,7 +329,7 @@ export default function App(){
   const handleDM=(v,p)=>{ if(!v) return; if(v.id===user.id){ alert("You can't message yourself"); return } setSelectedChat(v); setSelectedProduct(p); setTab('chat') }
   const addToCart=(p)=>{
     const v=getVendor(p.vendor_id);
-    const isFaster = v?.is_faster_shop === true || p.vendor_id === fasterShop?.id;
+    const isFaster = isFasterShopVendor(v) || v?.is_faster_shop === true || p.vendor_id === fasterShop?.id;
     if(!isFaster){ alert('Cart is only for Faster Shop store. For other vendors, tap Message to order directly.'); return; }
     setCart(prev=>{ const found=prev.find(x=>x.id===p.id); if(found) return prev.map(x=>x.id===p.id?{...x,qty:(x.qty||1)+1}:x); return [...prev,{...p,qty:1}]; });
     alert('Added to cart! Go to Cart to pay with Paystack.');
@@ -448,7 +457,7 @@ function PostCard({p,v,user,likes,toggleLike,comments,addComment,deletePost,onDM
   const [commentText,setCommentText]=useState('')
   const imgs=p.images||[]
   const isOwn=user.id===p.vendor_id
-  const isFaster = v?.is_faster_shop === true || p.vendor_id === fasterShop?.id
+  const isFaster = isFasterShopVendor(v) || v?.is_faster_shop === true || p.vendor_id === fasterShop?.id
   const getName=(uid)=>{if(uid===user.id) return 'You';const found=[...(vendorsList||[]),profile].find(x=>x?.id===uid);return found?.vendor_name||'User'}
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
@@ -468,7 +477,7 @@ function Featured({products,onOpenVendor,getVendor,onAddToCart}){
   const list=products.filter(p=>p.images?.length>0).slice(0,15)
   useEffect(()=>{if(!list.length)return;const t=setInterval(()=>setI(v=>(v+1)%list.length),4000);return()=>clearInterval(t)},[list.length])
   if(!list.length)return <div className="h-60 bg-zinc-900 rounded-[24px] flex items-center justify-center"><p>Featured Drop</p></div>
-  const curr=list[i]; const v=getVendor(curr.vendor_id); const isFaster=v?.is_faster_shop===true
+  const curr=list[i]; const v=getVendor(curr.vendor_id); const isFaster=isFasterShopVendor(v) || v?.is_faster_shop===true
   return (<div className="h-[260px] rounded-[24px] overflow-hidden relative border border-[#39FF14]/30"><img src={curr.images?.[0]} className="w-full h-full object-cover" alt="" /><div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" /><div className="absolute bottom-0 p-4"><h2 className="font-black text-[20px] flex items-center">{curr.title}<VerifiedBadge vendor={v} size={16} /></h2><p className="text-[12px] text-zinc-300">₦{curr.price} • {curr.category}</p><div className="flex gap-2 mt-3"><button onClick={()=>onOpenVendor(getVendor(curr.vendor_id))} className="bg-[#39FF14] text-black px-5 py-2.5 rounded-full text-[11px] font-black">Shop Now →</button>{isFaster&&<button onClick={()=>onAddToCart&&onAddToCart(curr)} className="bg-white text-black px-5 py-2.5 rounded-full text-[11px] font-black">Add to Cart</button>}</div></div></div>);
 }
 function getGreeting(){
@@ -494,7 +503,7 @@ function Home({products,stories,fasterShop,vendors,selectedCategory,setSelectedC
 }
 function Shop({products,selectedCategory,setSelectedCategory,getVendor,user,likes,toggleLike,onAddToCart,fasterShop}){
   const filtered=selectedCategory==='All'?products:products.filter(p=>p.category===selectedCategory)
-  return (<div className="p-4"><div className="flex gap-2 overflow-x-auto pb-3">{CATS.map(c=><button key={c} onClick={()=>setSelectedCategory(c)} className={`px-4 py-2 rounded-full text-[11px] border ${selectedCategory===c?'bg-white text-black':'bg-zinc-900 border-zinc-800'}`}>{c}</button>)}</div><div className="grid grid-cols-2 gap-3">{filtered.map(p=>{const v=getVendor(p.vendor_id);const isFaster=v?.is_faster_shop===true;return <div key={p.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden"><img src={p.images?.[0]} className="w-full h-36 object-cover" alt="" /><div className="p-2"><p className="text-[10px] font-bold truncate">{p.title}</p><p className="text-[9px] text-zinc-400 flex items-center">₦{p.price} • {v?.vendor_name}<VerifiedBadge vendor={v} size={10} /></p>{isFaster?<button onClick={()=>onAddToCart&&onAddToCart(p)} className="w-full mt-2 bg-[#39FF14] text-black py-2 rounded-full text-[10px] font-black">Add to Cart 🛒</button>:<p className="mt-2 text-[9px] text-zinc-500">Chat vendor to order →</p>}</div></div>})}</div></div>);
+  return (<div className="p-4"><div className="flex gap-2 overflow-x-auto pb-3">{CATS.map(c=><button key={c} onClick={()=>setSelectedCategory(c)} className={`px-4 py-2 rounded-full text-[11px] border ${selectedCategory===c?'bg-white text-black':'bg-zinc-900 border-zinc-800'}`}>{c}</button>)}</div><div className="grid grid-cols-2 gap-3">{filtered.map(p=>{const v=getVendor(p.vendor_id);const isFaster=isFasterShopVendor(v)||v?.is_faster_shop===true;return <div key={p.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden"><img src={p.images?.[0]} className="w-full h-36 object-cover" alt="" /><div className="p-2"><p className="text-[10px] font-bold truncate">{p.title}</p><p className="text-[9px] text-zinc-400 flex items-center">₦{p.price} • {v?.vendor_name}<VerifiedBadge vendor={v} size={10} /></p>{isFaster?<button onClick={()=>onAddToCart&&onAddToCart(p)} className="w-full mt-2 bg-[#39FF14] text-black py-2 rounded-full text-[10px] font-black">Add to Cart 🛒</button>:<p className="mt-2 text-[9px] text-zinc-500">Chat vendor to order →</p>}</div></div>})}</div></div>);
 }
 function VendorProfile({vendor,currentUser,products,stories,onBack,onStoryClick,reload,followMap,setFollowMap,sendNotif,getVendor,isAdmin,onAddToCart}){
   const {followers,following,refresh:refreshFollowCounts}=useFollowerCounts(vendor?.id)
@@ -516,7 +525,7 @@ function VendorProfile({vendor,currentUser,products,stories,onBack,onStoryClick,
   if(!vendor)return null
   const hasStory=stories.length>0
   const coverImg=products[0]?.images?.[0]||vendor.avatar_url||''
-  const isFaster = vendor?.is_faster_shop === true
+  const isFaster = isFasterShopVendor(vendor) || vendor?.is_faster_shop === true
   return (
     <div className="pb-6">
       <div className="relative"><div className="h-[140px] overflow-hidden">{coverImg?<img src={coverImg} className="w-full h-full object-cover" alt="" />:<div className="w-full h-full bg-zinc-900" />}</div><div className="absolute top-3 left-3 right-3 flex justify-between"><button onClick={onBack} className="bg-black/70 px-4 py-2 rounded-full text-[11px] font-bold">← Back</button>{isVerifiedVendor(vendor)?<span className="bg-[#FFD700] text-black px-3 py-2 rounded-full text-[9px] font-black border border-black">✓ VERIFIED • FASTER SHOP APPROVED</span>:<span className="bg-zinc-900 px-3 py-2 rounded-full text-[9px] font-bold">NOT VERIFIED YET</span>}</div><div className="absolute -bottom-10 left-4"><Avatar user={vendor} size={82} /></div></div>
