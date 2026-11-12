@@ -293,7 +293,7 @@ function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, pro
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2">
         {msgs.length === 0 && (<div className="text-center mt-10 px-6"><p className="text-[28px]">👋</p><p className="text-[12px] font-bold mt-2">Say hi to {vendor.vendor_name}</p><p className="text-[11px] text-zinc-500">Ask about price, size, delivery. After you receive package, tap ⭐ to confirm.</p></div>)}
         {msgs.map(m => (
-  <div key={m.id} className={`max-w-[80%] px-3 py-2 rounded-2xl text-[13px] relative group ${m.sender_id === user.id ? 'ml-auto bg-[#39FF14] text-black' : 'mr-auto bg-zinc-900 border border-zinc-800'}`}>
+  <div key={m.id} onClick={() => setReplyTo(m)} className={`max-w-[80%] px-3 py-2 rounded-2xl text-[13px] relative group cursor-pointer active:opacity-80 ${m.sender_id === user.id ? 'ml-auto bg-[#39FF14] text-black' : 'mr-auto bg-zinc-900 border border-zinc-800'}`}>
     {m.reply_to_text && <div className={`text-[10px] px-2 py-1 rounded-lg mb-1 opacity-70 border-l-2 ${m.sender_id === user.id ? 'bg-black/10 border-black' : 'bg-black/40 border-[#39FF14]'}`}>↩️ Replying to: {m.reply_to_text}</div>}
     <div>{m.text}</div>
     <button onClick={() => setReplyTo(m)} className="text-[10px] mt-1 opacity-60 font-bold">↩️ Reply</button>
