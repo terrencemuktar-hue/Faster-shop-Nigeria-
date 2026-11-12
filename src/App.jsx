@@ -11,26 +11,37 @@ const getLocalChats = (userId) => { try { return JSON.parse(localStorage.getItem
 const saveLocalMessage = (userId, msg) => { try { const all = getLocalChats(userId); all.push(msg); localStorage.setItem(`faster_msgs_${userId}`, JSON.stringify(all.slice(-500))); } catch {} };
 const deleteLocalChat = (userId, otherId) => { try { const all = getLocalChats(userId).filter(m => !((m.sender_id === userId && m.receiver_id === otherId) || (m.sender_id === otherId && m.receiver_id === userId))); localStorage.setItem(`faster_msgs_${userId}`, JSON.stringify(all)); } catch {} };
 
+// ===== AVATAR - SHOWS PHOTO OR FIRST LETTER, NEVER BLANK =====
+function Avatar({ user, size = 40, onClick }) {
+  const name = user?.vendor_name || user?.email?.split('@')[0] || 'User';
+  const letter = (name.trim()[0] || 'U').toUpperCase();
+  const colors = ['bg-[#39FF14] text-black','bg-white text-black','bg-zinc-700 text-white','bg-yellow-400 text-black','bg-pink-500 text-white'];
+  const color = colors[(letter.charCodeAt(0) || 0) % colors.length];
+  if (user?.avatar_url) return <img onClick={onClick} src={user.avatar_url} className="rounded-full object-cover bg-zinc-800 shrink-0" style={{ width: size, height: size }} alt="" />;
+  return <div onClick={onClick} className={`rounded-full flex items-center justify-center font-black shrink-0 ${color} ${onClick ? 'cursor-pointer' : ''}`} style={{ width: size, height: size, fontSize: size * 0.4 }}>{letter}</div>;
+}
+
+// ===== FIX 1 - FOLLOWER COUNT FROM follows TABLE =====
 function useFollowerCounts(userId){
   const [counts,setCounts]=useState({followers:0,following:0})
   const refresh=useCallback(async()=>{
-    if(!userId)return
-    const [followersResult,followingResult]=await Promise.all([
-      supabase.from('vendor_followers').select('*',{count:'exact',head:true}).eq('vendor_id',userId),
-      supabase.from('vendor_followers').select('*',{count:'exact',head:true}).eq('follower_id',userId)
-    ])
-    if(followersResult.error||followingResult.error){console.error('Failed to load vendor follower counts',followersResult.error||followingResult.error);return}
-    setCounts({followers:followersResult.count??0,following:followingResult.count??0})
+    if(!userId) return;
+    const [f1,f2]=await Promise.all([
+      supabase.from('follows').select('*',{count:'exact',head:true}).eq('following_id',userId),
+      supabase.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',userId)
+    ]);
+    setCounts({ followers: f1.count ?? 0, following: f2.count ?? 0 });
   },[userId])
   useEffect(()=>{
-    if(!userId)return
-    const channel=supabase.channel(`vendor-followers-${userId}`)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'vendor_followers',filter:`vendor_id=eq.${userId}`},refresh)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'vendor_followers',filter:`follower_id=eq.${userId}`},refresh)
-      .on('postgres_changes',{event:'DELETE',schema:'public',table:'vendor_followers'},refresh)
-      .subscribe()
-    refresh()
-    return()=>supabase.removeChannel(channel)
+    if(!userId) return;
+    refresh();
+    const ch = supabase.channel(`follows-count-${userId}`)
+      .on('postgres_changes',{event:'*',schema:'public',table:'follows'}, (payload) => {
+        const n = payload.new, o = payload.old;
+        if (n?.following_id === userId || n?.follower_id === userId || o?.following_id === userId || o?.follower_id === userId) refresh();
+      }).subscribe();
+    const t = setInterval(refresh, 5000);
+    return ()=>{ supabase.removeChannel(ch); clearInterval(t); }
   },[userId,refresh])
   return {...counts,refresh}
 }
@@ -58,7 +69,9 @@ function UcheChatFull({ user, profile, onClose }) {
     if (m.includes("thank") || m.includes("thanks")) return "You welcome! Anytime you need help, I dey here. Lagos shops here, Faster Shop dey for you ⚡";
     return "I hear you. Tell me small more: Is it about order, vendor, refund or delivery? Or tap one quick button below, I go help you sharp sharp.";
   };
-  const saveToSupabase = async (text, sender) => { try { await supabase.from('uche_chats').insert({ user_id: user?.id || null, user_email: user?.email || profile?.email || 'guest', user_name: profile?.vendor_name || user?.email?.split('@')[0] || 'Guest', message: text, sender, topic: 'general', status: 'open' }); } catch (e) {} };
+  const saveToSupabase = async (text, sender) => {
+    try { await supabase.from('uche_chats').insert({ user_id: user?.id || null, user_email: user?.email || profile?.email || 'guest', user_name: profile?.vendor_name || user?.email?.split('@')[0] || 'Guest', message: text, sender, topic: 'general', status: 'open' }); } catch (e) { console.log('Uche save failed', e); }
+  };
   const sendMessage = async (text) => {
     if (!text.trim() || sending) return;
     const clean = text.trim();
@@ -128,7 +141,6 @@ function MessagesListWithActions({ user, vendors, fasterShop, profile, onSelect,
     setLoading(false);
   };
   useEffect(() => { loadChats(); }, [user?.id, refreshKey]);
-  // Realtime - so when other person texts you, it appears WITHOUT refresh
   useEffect(() => {
     if (!user?.id) return;
     const ch = supabase.channel(`messages-list-${user.id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${user.id}` }, () => loadChats()).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `sender_id=eq.${user.id}` }, () => loadChats()).subscribe();
@@ -172,7 +184,7 @@ function MessagesListWithActions({ user, vendors, fasterShop, profile, onSelect,
           )}
           {filteredChats.map(c => (
             <div key={c.id} className="relative w-full bg-zinc-900 border border-zinc-800 rounded-2xl flex gap-3 items-center p-3">
-              <button onClick={() => onSelect(c.vendor)} className="flex gap-3 items-center flex-1 text-left min-w-0"><img src={c.vendor?.avatar_url || ''} className="w-11 h-11 rounded-full object-cover bg-zinc-800 shrink-0" alt="" /><div className="flex-1 min-w-0"><div className="flex justify-between"><p className="text-[12px] font-bold truncate">{c.vendor?.vendor_name || 'User'}</p>{c.lastAt && <span className="text-[9px] text-zinc-500 shrink-0 ml-2">{new Date(c.lastAt).toLocaleDateString()}</span>}</div><p className="text-[11px] text-zinc-400 truncate mt-0.5">{c.lastMessage || 'Tap to chat'}</p></div>{c.unread > 0 && <span className="bg-[#39FF14] text-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shrink-0">{c.unread}</span>}</button>
+              <button onClick={() => onSelect(c.vendor)} className="flex gap-3 items-center flex-1 text-left min-w-0"><Avatar user={c.vendor} size={44} /><div className="flex-1 min-w-0"><div className="flex justify-between"><p className="text-[12px] font-bold truncate">{c.vendor?.vendor_name || 'User'}</p>{c.lastAt && <span className="text-[9px] text-zinc-500 shrink-0 ml-2">{new Date(c.lastAt).toLocaleDateString()}</span>}</div><p className="text-[11px] text-zinc-400 truncate mt-0.5">{c.lastMessage || 'Tap to chat'}</p></div>{c.unread > 0 && <span className="bg-[#39FF14] text-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shrink-0">{c.unread}</span>}</button>
               <button onClick={(e) => { e.stopPropagation(); setOpenMenu(openMenu === c.id ? null : c.id); }} className="w-8 h-8 flex items-center justify-center text-[18px] font-black text-zinc-400 shrink-0">⋮</button>
               {openMenu === c.id && (
                 <div className="absolute right-2 top-12 z-20 w-[190px] bg-zinc-800 border border-zinc-700 rounded-2xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -213,7 +225,6 @@ function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, pro
       local.forEach(m => { if (!combined.find(x => x.id === m.id)) combined.push({ id: m.id, sender_id: m.sender_id, text: m.text, created_at: m.created_at }); });
       combined.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
       setMsgs(combined);
-      // Mark as read so unread badge clears
       try { await supabase.from('messages').update({ is_read: true }).eq('receiver_id', user.id).eq('sender_id', vendor.id); } catch {}
     };
     load();
@@ -230,19 +241,16 @@ function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, pro
     const tempId = 'temp-' + Date.now();
     setMsgs(prev => [...prev, { id: tempId, sender_id: user.id, text: clean, created_at: new Date().toISOString() }]);
     setText(''); setSending(true);
-    // FIX: Save to SUPABASE FIRST - so other person sees it. Local is only backup.
     try {
       const { data, error } = await supabase.from('messages').insert({ sender_id: user.id, receiver_id: vendor.id, text: clean, is_read: false }).select().single();
       if (error) {
         console.log('Supabase send failed:', error.message);
-        // Backup to local if Supabase fails
         saveLocalMessage(user.id, { id: tempId, sender_id: user.id, receiver_id: vendor.id, text: clean, created_at: new Date().toISOString(), vendor_name: vendor.vendor_name, vendor_avatar: vendor.avatar_url });
         alert('Message saved locally only — check your internet / Supabase messages table. Run the SQL below.');
       } else {
-        // Replace temp with real id
         if (data) setMsgs(prev => prev.map(m => m.id === tempId ? { ...m, id: data.id } : m));
       }
-      try { await supabase.from('notifications').insert({ user_id: vendor.id, actor_id: user.id, actor_name: profile?.vendor_name || user.email?.split('@')[0] || 'User', type: 'message', title: 'New message', message: clean, product_id: product?.id || null }); } catch (e) {}
+      try { await supabase.from('notifications').insert({ user_id: vendor.id, actor_id: user.id, actor_name: profile?.vendor_name || user.email?.split('@')[0] || 'User', type: 'message', title: 'New message', message: clean, product_id: product?.id || null, is_read: false }); } catch (e) { console.log('Notif failed', e); }
     } catch (e) { console.log('Send error', e); }
     setSending(false);
     if (onSent) onSent();
@@ -271,7 +279,7 @@ function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, pro
     <div className="flex flex-col h-[calc(100vh-120px)] relative" onClick={() => showMenu && setShowMenu(false)}>
       <div className="p-3 flex items-center gap-3 border-b border-zinc-900 bg-black sticky top-0">
         <button onClick={onBack} className="text-[14px]">←</button>
-        <button onClick={() => onViewProfile && onViewProfile(vendor)} className="flex items-center gap-2 flex-1 text-left"><img src={vendor.avatar_url || ''} className="w-9 h-9 rounded-full object-cover bg-zinc-800" alt="" /><div><p className="text-[12px] font-black leading-none">{vendor.vendor_name}</p><p className="text-[10px] text-[#39FF14] mt-1">● Online • Replies fast</p></div></button>
+        <button onClick={() => onViewProfile && onViewProfile(vendor)} className="flex items-center gap-2 flex-1 text-left"><Avatar user={vendor} size={36} /><div><p className="text-[12px] font-black leading-none">{vendor.vendor_name}</p><p className="text-[10px] text-[#39FF14] mt-1">● Online • Replies fast</p></div></button>
         <div className="relative">
           <button onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }} className="w-9 h-9 flex items-center justify-center text-[20px] font-black">⋮</button>
           {showMenu && (
@@ -294,6 +302,22 @@ function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, pro
       <p className="text-center text-[9px] text-zinc-500 pb-2">⚠️ Never pay outside Faster Shop — you lose buyer protection</p>
     </div>
   );
+}
+
+// ===== FIX 4 - BUYER PUBLIC PROFILE - NO FOLLOW / POSTS / ABOUT =====
+function BuyerPublicProfile({ vendor, currentUser, onBack, onMessage }) {
+  return <div className="pb-6">
+    <div className="relative"><div className="h-[110px] bg-gradient-to-br from-zinc-900 to-black" /><button onClick={onBack} className="absolute top-3 left-3 bg-black/70 px-4 py-2 rounded-full text-[11px] font-bold">← Back</button></div>
+    <div className="px-4 -mt-10">
+      <Avatar user={vendor} size={88} />
+      <h1 className="font-black text-[20px] mt-3 leading-none">{vendor.vendor_name}</h1>
+      <p className="text-[11px] text-zinc-500 mt-1">@{vendor.vendor_name?.toLowerCase().replace(/\s/g,'')} • Lagos, Nigeria</p>
+      <span className="inline-block mt-2 bg-[#39FF14]/15 text-[#39FF14] text-[9px] px-2.5 py-1 rounded-full font-black">🛍️ BUYER ACCOUNT</span>
+      <p className="text-[12px] text-zinc-300 leading-relaxed mt-3">{vendor.bio || 'Shops on Faster Shop. Follows vendors, likes drops, buys fits.'}</p>
+      {currentUser?.id !== vendor?.id && <button onClick={onMessage} className="w-full mt-4 bg-white text-black py-3.5 rounded-full text-[12px] font-black">Message 💬</button>}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 mt-4"><p className="text-[11px] text-zinc-400 leading-relaxed">This is a buyer account. Buyers shop, follow vendors and engage — they don't post products or have followers.</p></div>
+    </div>
+  </div>;
 }
 
 export default function App(){
@@ -321,10 +345,20 @@ export default function App(){
   const isAdmin=ADMIN_EMAILS.includes(currentEmail)||profile?.is_faster_shop===true
   useEffect(()=>{supabase.auth.getSession().then(({data})=>setUser(data.session?.user||null));supabase.auth.onAuthStateChange((_e,s)=>setUser(s?.user||null))},[])
   useEffect(()=>{if(user)loadAll()},[user])
+  // FIX 2 - Notifications: realtime + polling + message -> notification
   useEffect(()=>{
-    if(!user)return
-    const ch=supabase.channel(`notifs-${user.id}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:`user_id=eq.${user.id}`},p=>setNotifications(prev=>[p.new,...prev])).subscribe()
-    return()=>supabase.removeChannel(ch)
+    if(!user) return;
+    const loadNotifs = async () => { const { data } = await supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(200); if (data) setNotifications(data); };
+    loadNotifs();
+    const ch1 = supabase.channel(`notifs-${user.id}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:`user_id=eq.${user.id}`},p=>setNotifications(prev=>[p.new,...prev])).subscribe();
+    const ch2 = supabase.channel(`msgs-notif-${user.id}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`receiver_id=eq.${user.id}`}, async (p) => {
+      const m = p.new;
+      let senderName = 'Someone';
+      try { const { data } = await supabase.from('profiles').select('vendor_name,email').eq('id', m.sender_id).maybeSingle(); senderName = data?.vendor_name || data?.email?.split('@')[0] || 'Someone'; } catch {}
+      setNotifications(prev => [{ id: 'local-notif-' + m.id, user_id: user.id, actor_id: m.sender_id, actor_name: senderName, type: 'message', title: 'New message', message: m.text || 'New message', created_at: m.created_at || new Date().toISOString(), is_read: false }, ...prev]);
+    }).subscribe();
+    const t = setInterval(loadNotifs, 10000);
+    return ()=>{ supabase.removeChannel(ch1); supabase.removeChannel(ch2); clearInterval(t); }
   },[user?.id])
   const loadAll=async()=>{
     let {data:p}=await supabase.from('profiles').select('*').eq('id',user.id).maybeSingle()
@@ -356,7 +390,7 @@ export default function App(){
   }
   const sendNotif=async(targetUserId,type,title,message,product_id)=>{
     if(!targetUserId||targetUserId===user.id)return
-    try{await supabase.from('notifications').insert({user_id:targetUserId,actor_id:user.id,actor_name:profile?.vendor_name||user.email?.split('@')[0]||'User',type,title,message,product_id})}catch(e){}
+    try{await supabase.from('notifications').insert({user_id:targetUserId,actor_id:user.id,actor_name:profile?.vendor_name||user.email?.split('@')[0]||'User',type,title,message,product_id,is_read:false})}catch(e){}
   }
   const unreadCount=notifications.filter(n=>!n.is_read).length
   const markNotifsRead=async()=>{if(!unreadCount)return;await supabase.from('notifications').update({is_read:true}).eq('user_id',user.id).eq('is_read',false);setNotifications(prev=>prev.map(n=>({...n,is_read:true})))}
@@ -407,7 +441,11 @@ export default function App(){
       {tab==='home'&&<Home products={products} stories={stories} fasterShop={fasterShop} vendors={vendors} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}} onDM={handleDM} onStoryClick={openStories} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike} comments={comments} addComment={addComment} deletePost={deletePost} vendorsList={vendors} profile={profile}/>}
       {tab==='shop'&&<Shop products={products} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike}/>}
       {tab==='search'&&<><Search vendors={vendors} fasterShop={fasterShop} products={products} getVendor={getVendor} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}}/><FasterFinds /><EventsList /></>}
-      {tab==='vendor'&&<VendorProfile vendor={selectedVendor} currentUser={user} products={products.filter(p=>p.vendor_id===selectedVendor?.id)} stories={stories.filter(s=>(s.vendor_id===selectedVendor?.id||s.user_id===selectedVendor?.id))} onBack={()=>setTab('home')} onStoryClick={openStories} reload={loadAll} followMap={followMap} setFollowMap={setFollowMap} fasterShop={fasterShop} sendNotif={sendNotif} getVendor={getVendor}/>}
+      {tab==='vendor'&&(
+        selectedVendor && selectedVendor.is_vendor === false
+        ? <BuyerPublicProfile vendor={selectedVendor} currentUser={user} onBack={()=>setTab('home')} onMessage={()=>{ setSelectedChat(selectedVendor); setTab('chat'); }} />
+        : <VendorProfile vendor={selectedVendor} currentUser={user} products={products.filter(p=>p.vendor_id===selectedVendor?.id)} stories={stories.filter(s=>(s.vendor_id===selectedVendor?.id||s.user_id===selectedVendor?.id))} onBack={()=>setTab('home')} onStoryClick={openStories} reload={loadAll} followMap={followMap} setFollowMap={setFollowMap} fasterShop={fasterShop} sendNotif={sendNotif} getVendor={getVendor}/>
+      )}
       {tab==='messages'&&<MessagesListWithActions user={user} vendors={vendors} fasterShop={fasterShop} profile={profile} refreshKey={msgRefresh} onSelect={(v)=>{if(v.id===user.id) return; setSelectedChat(v);setTab('chat')}} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}} onOpenUche={()=>setShowUche(true)} />}
       {tab==='chat'&&<ChatRoomWithActions user={user} vendor={selectedChat} product={selectedProduct} onBack={()=>{setTab('messages'); setMsgRefresh(x=>x+1);}} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}} profile={profile} onSent={()=>setMsgRefresh(x=>x+1)} />}
       {tab==='cart'&&<div className="p-4"><h2 className="font-black text-[13px]">Cart — Fastershop Store Only</h2>{cart.length===0?<p className="text-[11px] text-zinc-500 mt-6">Empty</p>:cart.map((p,i)=><div key={i} className="bg-zinc-900 p-3 rounded-xl flex gap-3 mt-2"><img src={p.images?.[0]} className="w-16 h-16 rounded-xl object-cover" alt="" /><div><p className="text-[11px] font-bold">{p.title||p.name}</p><p className="text-[10px] text-zinc-400">{p.price}</p></div></div>)}<button className="w-full mt-4 bg-[#39FF14] text-black font-black py-3 rounded-full text-[11px]">Pay with Paystack</button></div>}
@@ -478,7 +516,7 @@ function StoryViewer({stories,idx,setIdx,onClose,getVendor}){
   const v=getVendor(curr.vendor_id||curr.user_id)
   return <div className="fixed inset-0 z-[100] bg-black flex flex-col">
     <div className="flex gap-1 p-2">{stories.map((_,i)=><div key={i} className="flex-1 h-1 bg-zinc-800 rounded-full overflow-hidden"><div className={`h-full bg-white ${i<idx?'w-full':i===idx?'w-1/2':''}`}/></div>)}</div>
-    <div className="p-4 flex gap-3 items-center"><img src={v?.avatar_url} className="w-8 h-8 rounded-full object-cover" /><p className="text-[11px] font-bold">{v?.vendor_name||'Vendor'}</p><span className="text-[10px] text-zinc-500">{new Date(curr.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span><button onClick={onClose} className="ml-auto">✕</button></div>
+    <div className="p-4 flex gap-3 items-center"><Avatar user={v} size={32} /><p className="text-[11px] font-bold">{v?.vendor_name||'Vendor'}</p><span className="text-[10px] text-zinc-500">{new Date(curr.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span><button onClick={onClose} className="ml-auto">✕</button></div>
     <div className="flex-1 relative flex items-center justify-center" onClick={(e)=>{if(e.clientX<window.innerWidth/2)setIdx(Math.max(0,idx-1));else if(idx<stories.length-1)setIdx(idx+1);else onClose()}}><img src={curr.image_url||curr.media_url||curr.url} className="max-h-[75vh] w-full object-contain" alt="" /></div>
     <p className="text-center text-[10px] text-zinc-500 pb-4">{idx+1}/{stories.length} • Tap left / right • Expires {new Date(curr.expires_at).toLocaleString()}</p>
   </div>
@@ -508,7 +546,7 @@ function Search({vendors,fasterShop,products,getVendor,onOpenVendor}){
     <div><p className="text-[10px] font-black tracking-widest text-zinc-500 mb-2">CATEGORIES</p><div className="flex gap-2 overflow-x-auto pb-1">{CATS2.map(c=><button key={c} onClick={()=>setCat(c)} className={`shrink-0 px-4 py-2 rounded-full text-[11px] font-bold border ${cat===c?'bg-white text-black border-white':'bg-zinc-900 border-zinc-800 text-zinc-400'}`}>{c}</button>)}</div></div>
     <div>
       <div className="flex justify-between items-center mb-2"><p className="text-[12px] font-black">Vendors {vFiltered.length>0&&<span className="text-zinc-500 font-normal">({vFiltered.length})</span>}</p><p className="text-[10px] text-[#39FF14] font-bold">Swipe →</p></div>
-      {vFiltered.length===0?<p className="text-[11px] text-zinc-500 bg-zinc-900 p-4 rounded-2xl text-center">No vendors found for "{q}"</p>:<div className="flex gap-3 overflow-x-auto pb-1">{vFiltered.map(v=><button key={v.id} onClick={()=>onOpenVendor(v)} className="shrink-0 w-[140px] bg-zinc-900 border border-zinc-800 rounded-2xl p-3 text-left"><img src={v.avatar_url||''} className="w-14 h-14 rounded-full object-cover bg-zinc-800 border-2 border-[#39FF14]" alt="" /><p className="text-[12px] font-bold mt-2 truncate">{v.vendor_name}</p><p className="text-[10px] text-zinc-400 line-clamp-2 leading-tight min-h-[28px]">{v.bio||'Faster Shop vendor'}</p><p className="text-[10px] font-black text-[#39FF14] mt-1">View Shop →</p></button>)}</div>}
+      {vFiltered.length===0?<p className="text-[11px] text-zinc-500 bg-zinc-900 p-4 rounded-2xl text-center">No vendors found for "{q}"</p>:<div className="flex gap-3 overflow-x-auto pb-1">{vFiltered.map(v=><button key={v.id} onClick={()=>onOpenVendor(v)} className="shrink-0 w-[140px] bg-zinc-900 border border-zinc-800 rounded-2xl p-3 text-left"><Avatar user={v} size={56} /><p className="text-[12px] font-bold mt-2 truncate">{v.vendor_name}</p><p className="text-[10px] text-zinc-400 line-clamp-2 leading-tight min-h-[28px]">{v.bio||'Faster Shop vendor'}</p><p className="text-[10px] font-black text-[#39FF14] mt-1">View Shop →</p></button>)}</div>}
     </div>
     <div>
       <p className="text-[12px] font-black mb-2">{query||cat!=='All'?'Results':'Fresh Drops'} {pFiltered.length>0&&<span className="text-zinc-500 font-normal">({pFiltered.length})</span>}</p>
@@ -520,13 +558,13 @@ function Search({vendors,fasterShop,products,getVendor,onOpenVendor}){
 function FollowList({title,ids,onClose,onOpenVendor,getVendor}){
   const [list,setList]=useState([])
   useEffect(()=>{const load=async()=>{if(!ids.length){setList([]);return}const {data}=await supabase.from('profiles').select('*').in('id',ids);setList(data||[])};load()},[ids.join(',')])
-  return <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col"><div className="p-4 flex justify-between items-center"><p className="font-black text-[13px]">{title} ({list.length})</p><button onClick={onClose}>✕</button></div><div className="p-4 space-y-2 overflow-y-auto">{list.length===0?<p className="text-[11px] text-zinc-500 text-center mt-10">Nobody yet</p>:list.map(v=><button key={v.id} onClick={()=>{onClose();onOpenVendor(v)}} className="w-full bg-zinc-900 p-3 rounded-2xl flex gap-3 items-center text-left"><img src={v.avatar_url||''} className="w-10 h-10 rounded-full object-cover bg-zinc-800" alt="" /><div><p className="text-[12px] font-bold">{v.vendor_name}</p><p className="text-[10px] text-zinc-400">{v.bio||''}</p></div></button>)}</div></div>
+  return <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col"><div className="p-4 flex justify-between items-center"><p className="font-black text-[13px]">{title} ({list.length})</p><button onClick={onClose}>✕</button></div><div className="p-4 space-y-2 overflow-y-auto">{list.length===0?<p className="text-[11px] text-zinc-500 text-center mt-10">Nobody yet</p>:list.map(v=><button key={v.id} onClick={()=>{onClose();onOpenVendor(v)}} className="w-full bg-zinc-900 p-3 rounded-2xl flex gap-3 items-center text-left"><Avatar user={v} size={40} /><div><p className="text-[12px] font-bold">{v.vendor_name}</p><p className="text-[10px] text-zinc-400">{v.bio||''}</p></div></button>)}</div></div>
 }
 
 function Notifications({notifications,products,getVendor,onBack,onOpenProduct,onOpenChat,onClear}){
   const getIcon=(t)=>t==='like'?'❤️':t==='comment'?'💬':t==='follow'?'👤':t==='message'?'✉️':'🔔'
   return <div className="p-4"><div className="flex items-center justify-between mb-4"><div className="flex gap-3 items-center"><button onClick={onBack}>Back</button><h2 className="font-black text-[14px]">Notifications</h2></div>{notifications.length>0&&<button onClick={onClear} className="text-[10px] text-zinc-400">Mark all read</button>}</div>
-  {notifications.length===0?<div className="text-center py-16"><p className="text-[32px]">🔔</p><p className="text-[12px] font-bold mt-2">No notifications yet</p><p className="text-[11px] text-zinc-500 mt-1">When someone likes, comments, follows or messages you,<br/>it will show here. History is kept forever.</p></div>:<div className="space-y-2">{notifications.map(n=>{const prod=products.find(p=>p.id===n.product_id);return <button key={n.id} onClick={()=>{if(n.type==='message')onOpenChat(n.actor_id);else if(prod)onOpenProduct(prod)}} className={`w-full text-left bg-zinc-900 border ${n.is_read?'border-zinc-800':'border-[#39FF14]/40'} p-3 rounded-2xl flex gap-3`}><div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-[16px] shrink-0">{getIcon(n.type)}</div><div className="flex-1 min-w-0"><p className="text-[11px] font-bold">{n.title} <span className="text-zinc-400 font-normal">• {n.actor_name||''}</span></p><p className="text-[11px] text-zinc-300 mt-0.5 line-clamp-2">{n.message}</p><p className="text-[9px] text-zinc-500 mt-1">{new Date(n.created_at).toLocaleString()}</p></div>{prod?.images?.[0]&&<img src={prod.images[0]} className="w-12 h-12 rounded-xl object-cover shrink-0" alt="" />}{!n.is_read&&<span className="w-2 h-2 bg-[#39FF14] rounded-full shrink-0 mt-2" />}</button>})}</div>}</div>
+  {notifications.length===0?<div className="text-center py-16"><p className="text-[32px]">🔔</p><p className="text-[12px] font-bold mt-2">No notifications yet</p><p className="text-[11px] text-zinc-500 mt-1">When someone likes, comments, follows or messages you,<br/>it will show here. History is kept forever.</p></div>:<div className="space-y-2">{notifications.map(n=>{const prod=products.find(p=>p.id===n.product_id);return <button key={n.id} onClick={()=>{if(n.type==='message')onOpenChat(n.actor_id);else if(prod)onOpenProduct(prod)}} className={`w-full text-left bg-zinc-900 border ${n.is_read?'border-zinc-800':'border-[#39FF14]/40'} p-3 rounded-2xl flex gap-3`}><div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-[16px] shrink-0">{getIcon(n.type)}</div><div className="flex-1 min-w-0"><p className="text-[11px] font-bold">{n.title} <span className="text-zinc-400 font-normal">• {n.actor_name||''}</span></p><p className="text-[11px] text-zinc-300 mt-0.5 line-clamp-2">{n.message}</p><p className="text-[9px] text-zinc-500 mt-1">{n.created_at ? new Date(n.created_at).toLocaleString() : ''}</p></div>{prod?.images?.[0]&&<img src={prod.images[0]} className="w-12 h-12 rounded-xl object-cover shrink-0" alt="" />}{!n.is_read&&<span className="w-2 h-2 bg-[#39FF14] rounded-full shrink-0 mt-2" />}</button>})}</div>}</div>
 }
 function PostSlider({images}){
   const [idx,setIdx]=useState(0)
@@ -542,7 +580,7 @@ function PostCard({p,v,user,likes,toggleLike,comments,addComment,deletePost,onDM
   const count=comments[p.id]?.length||0
   const getName=(uid)=>{if(uid===user.id) return 'You';const found=[...(vendorsList||[]),profile].find(x=>x?.id===uid);return found?.vendor_name||found?.email?.split('@')[0]||'User'}
   return <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-    <div className="p-3 flex gap-2 items-center"><img src={v?.avatar_url||``} className="w-8 h-8 rounded-full object-cover" alt="" /><p className="text-[11px] font-bold">{v?.vendor_name||'Vendor'}</p><span className="ml-auto text-[9px] bg-zinc-800 px-2 py-1 rounded-full">{imgs.length} slides</span>{isOwn&&<button onClick={()=>deletePost(p.id)} className="text-[12px] px-2">🗑️</button>}</div>
+    <div className="p-3 flex gap-2 items-center"><Avatar user={v} size={32} /><p className="text-[11px] font-bold">{v?.vendor_name||'Vendor'}</p><span className="ml-auto text-[9px] bg-zinc-800 px-2 py-1 rounded-full">{imgs.length} slides</span>{isOwn&&<button onClick={()=>deletePost(p.id)} className="text-[12px] px-2">🗑️</button>}</div>
     <PostSlider images={imgs}/>
     <div className="p-3">
       <div className="flex gap-4 items-center"><button onClick={()=>toggleLike(p.id)} className="text-[16px]">{likes[p.id]?'❤️':'🤍'}</button><button onClick={()=>setShowComments(!showComments)} className="text-[16px]">💬 <span className="text-[11px]">{count}</span></button>{!isOwn&&<button onClick={()=>onDM(v,p)} className="ml-auto bg-white text-black text-[9px] px-3 py-2 rounded-full font-bold">Message</button>}</div>
@@ -574,8 +612,8 @@ function Home({products,stories,fasterShop,vendors,selectedCategory,setSelectedC
   return <div className="p-4 space-y-5">
     <div><h1 className="font-black text-[22px] leading-none">{greeting.title}</h1><p className="text-[11px] text-zinc-500 mt-1">{greeting.sub}</p></div>
     <div className="flex gap-3 overflow-x-auto pb-1">
-      {fasterShop&&<button onClick={()=>map[fasterShop.id]?onStoryClick(map[fasterShop.id]):onOpenVendor(fasterShop)} className="flex flex-col items-center shrink-0"><div className={`w-[64px] h-[64px] rounded-full p-[2.5px] ${map[fasterShop.id]?'bg-gradient-to-tr from-[#39FF14] to-yellow-400':'bg-[#39FF14]'}`}><img src={fasterShop.avatar_url} className="w-full h-full rounded-full border-[3px] border-black object-cover" alt="" /></div><span className="text-[9px] font-black mt-1">FASTER ⚡</span></button>}
-      {vendors.map(v=><button key={v.id} onClick={()=>map[v.id]?onStoryClick(map[v.id]):onOpenVendor(v)} className="flex flex-col items-center shrink-0 min-w-[64px]"><div className={`w-[64px] h-[64px] rounded-full p-[2.5px] ${map[v.id]?'bg-gradient-to-tr from-pink-500 via-orange-400 to-yellow-400':'bg-zinc-700'}`}><img src={v.avatar_url||``} className="w-full h-full rounded-full border-[3px] border-black object-cover" alt="" /></div><span className="text-[9px] mt-1 truncate max-w-[64px]">{v.vendor_name?.split(' ')[0]}</span></button>)}
+      {fasterShop&&<button onClick={()=>map[fasterShop.id]?onStoryClick(map[fasterShop.id]):onOpenVendor(fasterShop)} className="flex flex-col items-center shrink-0"><div className={`w-[64px] h-[64px] rounded-full p-[2.5px] ${map[fasterShop.id]?'bg-gradient-to-tr from-[#39FF14] to-yellow-400':'bg-[#39FF14]'}`}><Avatar user={fasterShop} size={58} /></div><span className="text-[9px] font-black mt-1">FASTER ⚡</span></button>}
+      {vendors.map(v=><button key={v.id} onClick={()=>map[v.id]?onStoryClick(map[v.id]):onOpenVendor(v)} className="flex flex-col items-center shrink-0 min-w-[64px]"><div className={`w-[64px] h-[64px] rounded-full p-[2.5px] ${map[v.id]?'bg-gradient-to-tr from-pink-500 via-orange-400 to-yellow-400':'bg-zinc-700'}`}><Avatar user={v} size={58} /></div><span className="text-[9px] mt-1 truncate max-w-[64px]">{v.vendor_name?.split(' ')[0]}</span></button>)}
     </div>
     <Featured products={products} onOpenVendor={onOpenVendor} getVendor={getVendor}/>
     <div><p className="text-[10px] font-black tracking-widest text-zinc-500 mb-2">SHOP BY CATEGORY</p><div className="flex gap-2 overflow-x-auto pb-1">{CATS.map(c=><button key={c} onClick={()=>setSelectedCategory(c)} className={`shrink-0 px-4 py-2.5 rounded-full text-[11px] font-bold border ${selectedCategory===c?'bg-[#39FF14] text-black border-[#39FF14]':'bg-zinc-900 border-zinc-800 text-zinc-300'}`}>{c}</button>)}</div></div>
@@ -586,6 +624,7 @@ function Shop({products,selectedCategory,setSelectedCategory,getVendor,user,like
   const filtered=selectedCategory==='All'?products:products.filter(p=>p.category===selectedCategory)
   return <div className="p-4"><div className="flex gap-2 overflow-x-auto pb-3">{CATS.map(c=><button key={c} onClick={()=>setSelectedCategory(c)} className={`px-4 py-2 rounded-full text-[11px] border ${selectedCategory===c?'bg-white text-black':'bg-zinc-900 border-zinc-800'}`}>{c}</button>)}</div><div className="grid grid-cols-2 gap-3">{filtered.map(p=>{const v=getVendor(p.vendor_id); const img=(p.images||[])[0]; return <div key={p.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden"><div className="relative"><img src={img} className="w-full h-36 object-cover" alt="" />{p.images?.length>1&&<span className="absolute top-2 right-2 bg-black/70 text-[8px] px-2 py-1 rounded-full">{p.images.length} SLIDES</span>}<button onClick={()=>toggleLike(p.id)} className="absolute bottom-2 right-2 bg-black/60 w-7 h-7 rounded-full text-[12px]">{likes[p.id]?'❤️':'🤍'}</button></div><div className="p-2"><p className="text-[10px] font-bold truncate">{p.title||p.name}</p><p className="text-[9px] text-zinc-400">₦{p.price}{p.size?` • Size: ${p.size}`:''} • {v?.vendor_name}</p></div></div>})}</div></div>
 }
+
 function VendorProfile({vendor,currentUser,products,stories,onBack,onStoryClick,reload,followMap,setFollowMap,fasterShop,sendNotif,getVendor}){
   const {followers,following,refresh:refreshFollowCounts}=useFollowerCounts(vendor?.id)
   const [editingBio,setEditingBio]=useState(false)
@@ -602,6 +641,7 @@ function VendorProfile({vendor,currentUser,products,stories,onBack,onStoryClick,
     const r = isF ? await supabase.from('follows').delete().eq('follower_id',currentUser.id).eq('following_id',vendor.id) : await supabase.from('follows').insert({follower_id:currentUser.id,following_id:vendor.id})
     if(r.error)return alert(r.error.message)
     if(isF){const nm={...followMap};delete nm[vendor.id];setFollowMap(nm)}else{setFollowMap({...followMap,[vendor.id]:true});if(sendNotif)sendNotif(vendor.id,'follow','New follower','started following you',null)}
+    setTimeout(()=>refreshFollowCounts(),300)
     await refreshFollowCounts()
   }
   const openFollowList=async(type)=>{const col=type==='followers'?'following_id':'follower_id';const valCol=type==='followers'?'follower_id':'following_id';const res = await supabase.from('follows').select(valCol).eq(col,vendor.id);setFollowIds((res.data||[]).map(x=>x[valCol]));setShowFollow(type)}
@@ -619,7 +659,7 @@ function VendorProfile({vendor,currentUser,products,stories,onBack,onStoryClick,
     <div className="relative">
       <div className="h-[140px] overflow-hidden">{coverImg?<img src={coverImg} className="w-full h-full object-cover" alt="" />:<div className="w-full h-full bg-gradient-to-br from-[#39FF14]/30 via-zinc-900 to-black" />}<div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" /></div>
       <div className="absolute top-3 left-3 right-3 flex justify-between"><button onClick={onBack} className="bg-black/70 px-4 py-2 rounded-full text-[11px] font-bold">← Back</button><span className="bg-[#39FF14] text-black px-3 py-2 rounded-full text-[9px] font-black">✓ VERIFIED VENDOR</span></div>
-      <div className="absolute -bottom-10 left-4 flex items-end gap-3"><button onClick={()=>hasStory&&onStoryClick(stories)} className={`w-[88px] h-[88px] rounded-full p-[3px] block shrink-0 ${hasStory?'bg-gradient-to-tr from-[#39FF14] to-yellow-400':'bg-white'}`}><img src={vendor.avatar_url||``} className="w-full h-full rounded-full border-4 border-black object-cover" alt="" /></button>{isOwn&&<button onClick={changeAvatar} className="mb-1 -ml-8 z-10 bg-white text-black w-7 h-7 rounded-full text-[12px] font-black border-2 border-black">+</button>}</div>
+      <div className="absolute -bottom-10 left-4 flex items-end gap-3"><button onClick={()=>hasStory&&onStoryClick(stories)} className={`w-[88px] h-[88px] rounded-full p-[3px] block shrink-0 ${hasStory?'bg-gradient-to-tr from-[#39FF14] to-yellow-400':'bg-white'}`}><Avatar user={vendor} size={82} /></button>{isOwn&&<button onClick={changeAvatar} className="mb-1 -ml-8 z-10 bg-white text-black w-7 h-7 rounded-full text-[12px] font-black border-2 border-black">+</button>}</div>
     </div>
     <div className="pt-12 px-4">
       <div className="flex justify-between items-start"><div><h1 className="font-black text-[20px] leading-none">{vendor.vendor_name}</h1><p className="text-[11px] text-zinc-500 mt-1">@{vendor.vendor_name?.toLowerCase().replace(/\s/g,'')} • Lagos, Nigeria</p></div><span className="bg-zinc-900 border border-zinc-800 text-[9px] px-3 py-1.5 rounded-full font-bold">⭐ FASTER SHOP</span></div>
@@ -633,15 +673,20 @@ function VendorProfile({vendor,currentUser,products,stories,onBack,onStoryClick,
     {selectedPost&&(()=>{const imgs=selectedPost.images||selectedPost.image_urls||[];return <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col" onClick={()=>setSelectedPost(null)}><div className="flex justify-between items-center p-4" onClick={e=>e.stopPropagation()}><p className="text-[13px] font-black">{vendor.vendor_name}</p><button onClick={()=>setSelectedPost(null)} className="w-8 h-8 bg-zinc-800 rounded-full text-[16px]">✕</button></div><div className="flex-1 flex items-center justify-center relative px-4" onClick={e=>e.stopPropagation()}>{imgs.length>0&&<img src={imgs[postIdx]} className="max-h-[60vh] w-full object-contain rounded-2xl" alt="" />}{imgs.length>1&&<><button onClick={()=>setPostIdx((postIdx-1+imgs.length)%imgs.length)} className="absolute left-2 bg-black/70 w-9 h-9 rounded-full">‹</button><button onClick={()=>setPostIdx((postIdx+1)%imgs.length)} className="absolute right-2 bg-black/70 w-9 h-9 rounded-full">›</button><span className="absolute bottom-2 bg-black/70 px-2 py-1 rounded-full text-[10px]">{postIdx+1}/{imgs.length}</span></>}</div><div className="bg-zinc-900 p-4 space-y-2 rounded-t-[24px]" onClick={e=>e.stopPropagation()}><p className="text-[14px] font-black">{selectedPost.title||selectedPost.name}</p><p className="text-[11px] text-zinc-300 whitespace-pre-wrap">{selectedPost.description||selectedPost.caption||'No caption'}</p><div className="flex gap-2 text-[11px]"><span className="bg-[#39FF14] text-black px-3 py-1.5 rounded-full font-black">₦{selectedPost.price}</span>{selectedPost.size&&<span className="bg-zinc-800 px-3 py-1.5 rounded-full">Size: {selectedPost.size}</span>}<span className="bg-zinc-800 px-3 py-1.5 rounded-full">{selectedPost.category||''}</span></div>{isOwn&&<button onClick={()=>deletePost(selectedPost.id)} className="w-full mt-2 bg-red-600 text-white font-bold py-3 rounded-full text-[11px]">🗑️ Delete This Post</button>}</div></div>})()}
   </div>
 }
+
 function BuyerProfile({user,profile,reload,setTab,products,likes,getVendor,onOpenVendor}){
   const name = profile?.vendor_name || user.email?.split('@')[0] || 'User'
-  const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
   const go = (t)=> setTab ? setTab(t) : null
   const wishlist = (products||[]).filter(p=>likes?.[p.id])
+  const changeAvatar = async () => {
+    const input=document.createElement('input');input.type='file';input.accept='image/*';
+    input.onchange=async(e)=>{const f=e.target.files?.[0];if(!f)return;const fileName=`${user.id}/avatar-${Date.now()}-${f.name.replace(/[^a-zA-Z0-9.-]/g,'_')}`;const {error}=await supabase.storage.from('product-images').upload(fileName,f,{upsert:true});if(error)return alert(error.message);const {data}=supabase.storage.from('product-images').getPublicUrl(fileName);await supabase.from('profiles').update({avatar_url:data.publicUrl}).eq('id',user.id);await reload();alert('Profile picture updated')};
+    input.click()
+  };
   return <div className="p-4 space-y-4 bg-black">
     <div className="bg-zinc-900 border border-zinc-800 rounded-[24px] p-4 flex gap-4 items-center">
-      <div className="w-[72px] h-[72px] rounded-full bg-black border-2 border-zinc-700 flex items-center justify-center shrink-0"><span className="font-black text-[22px] text-white">{initials || 'TN'}</span></div>
-      <div className="min-w-0"><p className="font-black text-[16px] leading-tight truncate capitalize">{name}</p><p className="text-[12px] text-zinc-400 truncate mt-1">{user.email}</p><span className="inline-block mt-2 bg-[#39FF14]/15 text-[#39FF14] text-[9px] px-2.5 py-1 rounded-full font-black">🛍️ BUYER ACCOUNT</span></div>
+      <div className="relative shrink-0"><Avatar user={profile} size={72} /><button onClick={changeAvatar} className="absolute -bottom-1 -right-1 bg-[#39FF14] text-black w-6 h-6 rounded-full text-[14px] font-black border-2 border-black flex items-center justify-center">+</button></div>
+      <div className="min-w-0"><p className="font-black text-[16px] leading-tight truncate capitalize">{name}</p><p className="text-[12px] text-zinc-400 truncate mt-1">{user.email}</p><span className="inline-block mt-2 bg-[#39FF14]/15 text-[#39FF14] text-[9px] px-2.5 py-1 rounded-full font-black">🛍️ BUYER ACCOUNT</span><button onClick={changeAvatar} className="block mt-2 text-[10px] bg-zinc-800 px-3 py-1.5 rounded-full font-bold">Change Photo</button></div>
     </div>
     <p className="text-[10px] font-black tracking-widest text-zinc-500 pt-1">ACCOUNT & DELIVERIES</p>
     <div className="bg-zinc-900 border border-zinc-800 rounded-[24px] overflow-hidden divide-y divide-zinc-800">
@@ -656,6 +701,7 @@ function BuyerProfile({user,profile,reload,setTab,products,likes,getVendor,onOpe
     </div>
   </div>
 }
+
 function Profile({user,profile,products,reload,getVendor}){
   const [view,setView]=useState('main')
   const [form,setForm]=useState({title:'',price:'',category:'Shoes',size:'',caption:''})
@@ -717,7 +763,7 @@ function Profile({user,profile,products,reload,getVendor}){
   return <div className="p-4 space-y-4">
     <input ref={storyInputRef} type="file" accept="image/*" multiple onChange={onStoryFile} className="hidden" />
     <div className="flex gap-5">
-      <div className="relative shrink-0"><button onClick={changeAvatar}><img src={profile?.avatar_url||``} className="w-20 h-20 rounded-full object-cover bg-zinc-800" alt="" /></button><button onClick={()=>storyInputRef.current?.click()} title="Upload Story" className="absolute -bottom-1 -right-1 bg-[#39FF14] text-black w-7 h-7 rounded-full text-[16px] font-black border-2 border-black flex items-center justify-center">+</button></div>
+      <div className="relative shrink-0"><button onClick={changeAvatar}><Avatar user={profile} size={80} /></button><button onClick={()=>storyInputRef.current?.click()} title="Upload Story" className="absolute -bottom-1 -right-1 bg-[#39FF14] text-black w-7 h-7 rounded-full text-[16px] font-black border-2 border-black flex items-center justify-center">+</button></div>
       <div className="flex-1">
         <div className="flex gap-5"><div className="text-center"><p className="font-black">{products.length}</p><p className="text-[10px] text-zinc-500">Posts</p></div><button onClick={()=>openFollowList('followers')} className="text-center"><p className="font-black">{followers}</p><p className="text-[10px] text-zinc-500 underline">Followers</p></button><button onClick={()=>openFollowList('following')} className="text-center"><p className="font-black">{following}</p><p className="text-[10px] text-zinc-500 underline">Following</p></button></div>
         <div className="mt-2">{editingBio?<div className="space-y-2"><textarea value={bioText} onChange={e=>setBioText(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2 text-[11px]" /><div className="flex gap-2"><button onClick={saveBio} className="bg-white text-black px-3 py-1 rounded-full text-[10px] font-bold">Save</button><button onClick={()=>setEditingBio(false)} className="bg-zinc-800 px-3 py-1 rounded-full text-[10px]">Cancel</button></div></div>:<><p className="text-[11px] font-bold">{profile?.vendor_name||user.email?.split('@')[0]}</p><p className="text-[11px]">{profile?.bio||'Add bio...'}</p><div className="flex gap-2 mt-1"><button onClick={()=>setEditingBio(true)} className="text-[10px] bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full">Edit Bio</button><button onClick={changeAvatar} className="text-[10px] bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full">Change Photo</button></div></>}</div>
@@ -730,6 +776,7 @@ function Profile({user,profile,products,reload,getVendor}){
     {selectedPost&&(()=>{const imgs=selectedPost.images||selectedPost.image_urls||[];return <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col" onClick={()=>setSelectedPost(null)}><div className="flex justify-between items-center p-4" onClick={e=>e.stopPropagation()}><p className="text-[12px] font-black">{profile?.vendor_name||'You'}</p><button onClick={()=>setSelectedPost(null)} className="text-[18px]">✕</button></div><div className="flex-1 flex items-center justify-center relative px-4" onClick={e=>e.stopPropagation()}>{imgs.length>0&&<img src={imgs[postIdx]} className="max-h-[60vh] w-full object-contain rounded-xl" alt="" />}{imgs.length>1&&<><button onClick={()=>setPostIdx((postIdx-1+imgs.length)%imgs.length)} className="absolute left-2 bg-black/60 w-8 h-8 rounded-full">‹</button><button onClick={()=>setPostIdx((postIdx+1)%imgs.length)} className="absolute right-2 bg-black/60 w-8 h-8 rounded-full">›</button><span className="absolute bottom-2 bg-black/60 text-[9px] px-2 py-1 rounded-full">{postIdx+1}/{imgs.length}</span></>}</div><div className="bg-zinc-900 p-4 space-y-2" onClick={e=>e.stopPropagation()}><p className="text-[13px] font-bold">{selectedPost.title||selectedPost.name}</p><p className="text-[11px] text-zinc-300 whitespace-pre-wrap">{selectedPost.description||selectedPost.caption||'No caption'}</p><div className="flex gap-2 text-[11px]"><span className="bg-[#39FF14] text-black px-3 py-1 rounded-full font-black">₦{selectedPost.price}</span>{selectedPost.size&&<span className="bg-zinc-800 px-3 py-1 rounded-full">Size: {selectedPost.size}</span>}<span className="bg-zinc-800 px-3 py-1 rounded-full">{selectedPost.category||''}</span></div><button onClick={()=>deletePost(selectedPost.id)} className="w-full mt-2 bg-red-600 text-white font-bold py-3 rounded-full text-[11px]">🗑️ Delete This Post</button></div></div>})()}
   </div>
 }
+
 function Settings({user,profile,reload,onBack,onOpenUche}){
   const [notif,setNotif]=useState(true)
   const [sound,setSound]=useState(true)
