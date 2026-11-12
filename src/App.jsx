@@ -216,6 +216,7 @@ function MessagesListWithActions({ user, vendors, fasterShop, profile, onSelect,
 function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, profile, onSent }) {
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState('');
+  const [replyTo, setReplyTo] = useState(null);
   const [sending, setSending] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [starredToday, setStarredToday] = useState(false);
@@ -245,7 +246,7 @@ function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, pro
     if (!vendor?.id) return;
     const load = async () => {
       let combined = [];
-      try { const { data, error } = await supabase.from('messages').select('*').or(`and(sender_id.eq.${user.id},receiver_id.eq.${vendor.id}),and(sender_id.eq.${vendor.id},receiver_id.eq.${user.id})`).order('created_at', { ascending: true }); if (!error && data) combined = data.map(m => ({ id: m.id, sender_id: m.sender_id, text: m.text || m.message || '', created_at: m.created_at })); } catch {}
+      try { const { data, error } = await supabase.from('messages').select('*').or(`and(sender_id.eq.${user.id},receiver_id.eq.${vendor.id}),and(sender_id.eq.${vendor.id},receiver_id.eq.${user.id})`).order('created_at', { ascending: true }); if (!error && data) combined = data.map(m => ({ id: m.id, sender_id: m.sender_id, text: m.text || m.message || '', reply_to_text: m.reply_to_text || null, created_at: m.created_at })); } catch {}
       const local = getLocalChats(user.id).filter(m => (m.sender_id === user.id && m.receiver_id === vendor.id) || (m.sender_id === vendor.id && m.receiver_id === user.id));
       local.forEach(m => { if (!combined.find(x => x.id === m.id)) combined.push({ id: m.id, sender_id: m.sender_id, text: m.text, created_at: m.created_at }); });
       combined.sort((a,b) => new Date(a.created_at) - new Date(b.created_at)); setMsgs(combined);
@@ -258,9 +259,10 @@ function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, pro
   const send = async () => {
     if (!text.trim() || sending) return;
     const clean = text.trim(); const tempId = 'temp-' + Date.now();
-    setMsgs(prev => [...prev, { id: tempId, sender_id: user.id, text: clean, created_at: new Date().toISOString() }]);
+    setMsgs(prev => [...prev, { id: tempId, sender_id: user.id, text: clean, reply_to_text: replyTo?.text || null, created_at: new Date().toISOString() }]);
+    setReplyTo(null);
     setText(''); setSending(true);
-    try { const { data, error } = await supabase.from('messages').insert({ sender_id: user.id, receiver_id: vendor.id, text: clean, is_read: false }).select().single(); if (error) { saveLocalMessage(user.id, { id: tempId, sender_id: user.id, receiver_id: vendor.id, text: clean, created_at: new Date().toISOString() }); } else if (data) setMsgs(prev => prev.map(m => m.id === tempId ? { ...m, id: data.id } : m)); try { await supabase.from('notifications').insert({ user_id: vendor.id, actor_id: user.id, actor_name: profile?.vendor_name || 'User', type: 'message', title: 'New message', message: clean, product_id: product?.id || null, is_read: false }); } catch {} } catch {}
+    try { const { data, error } = await supabase.from('messages').insert({ sender_id: user.id, receiver_id: vendor.id, text: clean, reply_to_text: replyTo?.text || null, is_read: false }).select().single(); if (error) { saveLocalMessage(user.id, { id: tempId, sender_id: user.id, receiver_id: vendor.id, text: clean, created_at: new Date().toISOString() }); } else if (data) setMsgs(prev => prev.map(m => m.id === tempId ? { ...m, id: data.id } : m)); try { await supabase.from('notifications').insert({ user_id: vendor.id, actor_id: user.id, actor_name: profile?.vendor_name || 'User', type: 'message', title: 'New message', message: clean, product_id: product?.id || null, is_read: false }); } catch {} } catch {}
     setSending(false); if (onSent) onSent();
   };
   const giveStar = async () => {
@@ -290,9 +292,15 @@ function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, pro
       {product && (<div className="mx-3 mt-3 bg-zinc-900 border border-zinc-800 rounded-2xl p-2.5 flex gap-3 items-center"><img loading="lazy" decoding="async" src={product.images?.[0] || ''} className="w-12 h-12 rounded-xl object-cover bg-zinc-800" alt="" /><div><p className="text-[11px] font-bold">{product.title || product.name}</p><p className="text-[10px] text-[#39FF14] font-black">₦{product.price}</p></div></div>)}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2">
         {msgs.length === 0 && (<div className="text-center mt-10 px-6"><p className="text-[28px]">👋</p><p className="text-[12px] font-bold mt-2">Say hi to {vendor.vendor_name}</p><p className="text-[11px] text-zinc-500">Ask about price, size, delivery. After you receive package, tap ⭐ to confirm.</p></div>)}
-        {msgs.map(m => (<div key={m.id} className={`max-w-[80%] px-3 py-2 rounded-2xl text-[13px] ${m.sender_id === user.id ? 'ml-auto bg-[#39FF14] text-black' : 'mr-auto bg-zinc-900 border border-zinc-800'}`}>{m.text}</div>))}
+        {msgs.map(m => (
+  <div key={m.id} className={`max-w-[80%] px-3 py-2 rounded-2xl text-[13px] relative group ${m.sender_id === user.id ? 'ml-auto bg-[#39FF14] text-black' : 'mr-auto bg-zinc-900 border border-zinc-800'}`}>
+    {m.reply_to_text && <div className={`text-[10px] px-2 py-1 rounded-lg mb-1 opacity-70 border-l-2 ${m.sender_id === user.id ? 'bg-black/10 border-black' : 'bg-black/40 border-[#39FF14]'}`}>↩️ Replying to: {m.reply_to_text}</div>}
+    <div>{m.text}</div>
+    <button onClick={() => setReplyTo(m)} className="text-[10px] mt-1 opacity-60 font-bold">↩️ Reply</button>
+  </div>
+))}
       </div>
-      <div className="p-3 border-t border-zinc-900 bg-black flex gap-2 pb-4"><input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder={`Message ${vendor.vendor_name}...`} className="flex-1 bg-zinc-900 rounded-full px-4 py-3 text-[13px] outline-none" /><button onClick={send} disabled={sending} className="bg-[#39FF14] text-black w-11 h-11 rounded-full font-black">➤</button></div>
+      {replyTo && (<div className="mx-3 mb-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 flex justify-between items-center"><p className="text-[11px] text-zinc-400 truncate">↩️ Replying to: <span className="text-white">{replyTo.text}</span></p><button onClick={() => setReplyTo(null)} className="text-[14px] px-2">✕</button></div>)}<div className="p-3 border-t border-zinc-900 bg-black flex gap-2 pb-4"><input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder={`Message ${vendor.vendor_name}...`} className="flex-1 bg-zinc-900 rounded-full px-4 py-3 text-[13px] outline-none" /><button onClick={send} disabled={sending} className="bg-[#39FF14] text-black w-11 h-11 rounded-full font-black">➤</button></div>
     </div>
   );
 }
@@ -515,7 +523,7 @@ export default function App(){
       {tab==='home'&&<Home products={products} stories={stories} fasterShop={fasterShop} vendors={vendors} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}} onDM={handleDM} onStoryClick={openStories} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike} comments={comments} addComment={addComment} deletePost={deletePost} vendorsList={vendors} profile={profile} onAddToCart={addToCart} />}
       {tab==='shop'&&<Shop products={products} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike} onAddToCart={addToCart} fasterShop={fasterShop} />}
       {tab==='search'&&<><Search vendors={vendors} fasterShop={fasterShop} products={products} getVendor={getVendor} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}}/><FasterFinds /><EventsList /></>}
-      {tab==='vendor'&&(selectedVendor && selectedVendor.is_vendor === false ? <BuyerPublicProfile vendor={selectedVendor} currentUser={user} onBack={()=>setTab('home')} onMessage={()=>{ setSelectedChat(selectedVendor); setTab('chat'); }} /> : <VendorProfile vendor={selectedVendor} currentUser={user} products={products.filter(p=>p.vendor_id===selectedVendor?.id)} stories={stories.filter(s=>(s.vendor_id===selectedVendor?.id||s.user_id===selectedVendor?.id))} onBack={()=>setTab('home')} onStoryClick={openStories} reload={loadAll} followMap={followMap} setFollowMap={setFollowMap} fasterShop={fasterShop} sendNotif={sendNotif} getVendor={getVendor} isAdmin={isAdmin} onAddToCart={addToCart} onMessage={() => setTab('chat')} />)}
+      {tab==='vendor'&&(selectedVendor && selectedVendor.is_vendor === false ? <BuyerPublicProfile vendor={selectedVendor} currentUser={user} onBack={()=>setTab('home')} onMessage={()=>{ setSelectedChat(selectedVendor); setTab('chat'); }} /> : <VendorProfile vendor={selectedVendor} currentUser={user} products={products.filter(p=>p.vendor_id===selectedVendor?.id)} stories={stories.filter(s=>(s.vendor_id===selectedVendor?.id||s.user_id===selectedVendor?.id))} onBack={()=>setTab('home')} onStoryClick={openStories} reload={loadAll} followMap={followMap} setFollowMap={setFollowMap} fasterShop={fasterShop} sendNotif={sendNotif} getVendor={getVendor} isAdmin={isAdmin} onAddToCart={addToCart} onMessage={() => { setSelectedChat(selectedVendor); setSelectedProduct(null); setTab('chat'); }} />)}
       {tab==='messages'&&<MessagesListWithActions user={user} vendors={vendors} fasterShop={fasterShop} profile={profile} refreshKey={msgRefresh} onSelect={(v)=>{if(v.id===user.id) return; setSelectedChat(v);setTab('chat')}} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}} onOpenUche={()=>setShowUche(true)} />}
       {tab==='chat'&&<ChatRoomWithActions user={user} vendor={selectedChat} product={selectedProduct} onBack={()=>{setTab('messages'); setMsgRefresh(x=>x+1);}} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}} profile={profile} onSent={()=>setMsgRefresh(x=>x+1)} />}
       {tab==='cart'&&<CartTab cart={cart} setCart={setCart} fasterShop={fasterShop} user={user} profile={profile} />}
