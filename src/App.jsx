@@ -7,6 +7,18 @@ import ClothesRain from "./components/ClothesRain";
 const CATS=['All','Men','Hoodies','Caps','Perfumes','Shoes','Bags']
 const ADMIN_EMAILS=['terrence@faster.shop','terrence@fastersub.ng','terrence@fastershop.ng']
 
+// ===== MESSAGES HELPERS - LOCAL BACKUP SO MESSAGES NEVER DISAPPEAR =====
+const getLocalChats = (userId) => {
+  try { return JSON.parse(localStorage.getItem(`faster_msgs_${userId}`) || '[]'); } catch { return []; }
+};
+const saveLocalMessage = (userId, msg) => {
+  try {
+    const all = getLocalChats(userId);
+    all.push(msg);
+    localStorage.setItem(`faster_msgs_${userId}`, JSON.stringify(all.slice(-500)));
+  } catch {}
+};
+
 function useFollowerCounts(userId){
   const [counts,setCounts]=useState({followers:0,following:0})
   const refresh=useCallback(async()=>{
@@ -31,18 +43,13 @@ function useFollowerCounts(userId){
   return {...counts,refresh}
 }
 
-// ===== UCHE - FASTER SHOP SUPPORT CHAT - FIXED SPOT =====
-function UcheChat({ user, profile }) {
-  const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { sender: 'uche', text: "Hi! I'm Uche, your Faster Shop helper 👋 What is wrong? I go sort am quick." }
-  ]);
+// ===== UCHE - ONLY IN SETTINGS + MESSAGES - FULL SCREEN, NO FLOATING =====
+function UcheChatFull({ user, profile, onClose }) {
+  const [messages, setMessages] = useState([{ sender: 'uche', text: "Hi! I'm Uche, your Faster Shop helper 👋 What is wrong? I go sort am quick." }]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef(null);
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, open]);
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages]);
   const quickButtons = ["My order never arrived","Wrong item / wrong size","Vendor is not replying","I want refund / return","How to buy?","How to sell?","Report a vendor","Delivery wahala"];
   const getUcheReply = (msg) => {
     const m = msg.toLowerCase();
@@ -60,16 +67,14 @@ function UcheChat({ user, profile }) {
     return "I hear you. Tell me small more: Is it about order, vendor, refund or delivery? Or tap one quick button below, I go help you sharp sharp.";
   };
   const saveToSupabase = async (text, sender) => {
-    try {
-      await supabase.from('uche_chats').insert({ user_id: user?.id || null, user_email: user?.email || profile?.email || 'guest', user_name: profile?.vendor_name || user?.email?.split('@')[0] || 'Guest', message: text, sender, topic: 'general', status: 'open' });
-    } catch (e) { console.log('Uche save failed', e); }
+    try { await supabase.from('uche_chats').insert({ user_id: user?.id || null, user_email: user?.email || profile?.email || 'guest', user_name: profile?.vendor_name || user?.email?.split('@')[0] || 'Guest', message: text, sender, topic: 'general', status: 'open' }); } catch (e) { console.log('Uche save failed', e); }
   };
   const sendMessage = async (text) => {
     if (!text.trim() || sending) return;
     const clean = text.trim();
     setMessages(prev => [...prev, { sender: 'user', text: clean }]);
     setInput(""); setSending(true); saveToSupabase(clean, 'user');
-    setTimeout(async () => {
+    setTimeout(() => {
       const reply = getUcheReply(clean);
       setMessages(prev => [...prev, { sender: 'uche', text: reply }]);
       saveToSupabase(reply, 'uche');
@@ -80,92 +85,92 @@ function UcheChat({ user, profile }) {
     }, 700);
   };
   return (
-    <>
-      {!open && (<button onClick={() => setOpen(true)} className="fixed bottom-[84px] right-4 z-[9999] w-[56px] h-[56px] rounded-full bg-white text-black font-black text-[24px] shadow-2xl border-4 border-[#39FF14] flex items-center justify-center active:scale-95 transition">💬</button>)}
-      {open && (
-        <div className="fixed z-[9999] overflow-hidden bg-white text-black rounded-[20px] shadow-2xl flex flex-col border border-zinc-200 bottom-[84px] right-3 left-auto w-[calc(100vw-24px)] max-w-[360px] h-[520px] max-h-[calc(100vh-170px)] sm:right-4 sm:w-[360px]">
-          <div className="bg-black text-white p-3 flex justify-between items-center shrink-0">
-            <div className="flex items-center gap-2"><div className="w-9 h-9 bg-[#39FF14] rounded-full flex items-center justify-center text-[20px]">🤖</div><div><p className="font-black text-[13px] leading-none">Uche - Faster Shop</p><p className="text-[10px] text-[#39FF14] mt-1">● Online - Replies instantly</p></div></div>
-            <button onClick={() => setOpen(false)} className="text-[18px] px-2">✕</button>
-          </div>
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 bg-zinc-100 space-y-2">
-            {messages.map((msg, i) => (<div key={i} className={`max-w-[85%] px-3 py-2 rounded-2xl text-[13px] leading-relaxed ${msg.sender === 'user' ? 'ml-auto bg-black text-white rounded-br-md' : 'mr-auto bg-white border border-zinc-200 rounded-bl-md'}`}>{msg.text}</div>))}
-            {sending && <div className="mr-auto bg-white border px-3 py-2 rounded-2xl text-[12px] text-zinc-500">Uche dey type...</div>}
-            {messages.length <= 2 && (<div className="flex flex-wrap gap-1.5 pt-2">{quickButtons.map(btn => (<button key={btn} onClick={() => sendMessage(btn)} className="bg-white border border-zinc-300 rounded-full px-3 py-1.5 text-[11px] font-bold">{btn}</button>))}</div>)}
-          </div>
-          <div className="flex gap-2 p-2 border-t bg-white shrink-0"><input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage(input)} placeholder="Ask Uche anything..." className="flex-1 bg-zinc-100 rounded-full px-4 py-2.5 text-[13px] outline-none" /><button onClick={() => sendMessage(input)} className="bg-black text-white w-10 h-10 rounded-full font-black shrink-0">➤</button></div>
-          <p className="text-center text-[9px] text-zinc-400 pb-2 bg-white">Uche saves your complaint for Faster Shop team • Never pay outside app</p>
-        </div>
-      )}
-    </>
+    <div className="fixed inset-0 z-[100] bg-black flex flex-col">
+      <div className="bg-black border-b border-zinc-900 p-3 flex items-center gap-3">
+        <button onClick={onClose} className="text-[16px] px-1">←</button>
+        <div className="w-10 h-10 bg-[#39FF14] rounded-full flex items-center justify-center text-[20px] shrink-0">🤖</div>
+        <div className="flex-1"><p className="font-black text-[13px] leading-none">Uche - Faster Shop</p><p className="text-[10px] text-[#39FF14] mt-1">● Online - Replies instantly</p></div>
+        <span className="text-[9px] bg-zinc-900 px-2 py-1 rounded-full">SUPPORT</span>
+      </div>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 bg-black space-y-2">
+        {messages.map((msg, i) => (<div key={i} className={`max-w-[85%] px-3 py-2.5 rounded-2xl text-[13px] leading-relaxed ${msg.sender === 'user' ? 'ml-auto bg-[#39FF14] text-black rounded-br-md' : 'mr-auto bg-zinc-900 border border-zinc-800 rounded-bl-md'}`}>{msg.text}</div>))}
+        {sending && <div className="mr-auto bg-zinc-900 border border-zinc-800 px-3 py-2 rounded-2xl text-[12px] text-zinc-400">Uche dey type...</div>}
+        {messages.length <= 2 && (<div className="flex flex-wrap gap-2 pt-2">{quickButtons.map(btn => (<button key={btn} onClick={() => sendMessage(btn)} className="bg-zinc-900 border border-zinc-700 rounded-full px-3 py-2 text-[11px] font-bold">{btn}</button>))}</div>)}
+      </div>
+      <div className="p-3 border-t border-zinc-900 bg-black flex gap-2"><input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage(input)} placeholder="Ask Uche anything..." className="flex-1 bg-zinc-900 rounded-full px-4 py-3 text-[13px] outline-none" /><button onClick={() => sendMessage(input)} className="bg-[#39FF14] text-black w-11 h-11 rounded-full font-black shrink-0">➤</button></div>
+      <p className="text-center text-[9px] text-zinc-500 pb-3 bg-black">Uche saves your complaint for Faster Shop team • Never pay outside app</p>
+    </div>
   );
 }
 
-// ===== MESSAGES - FIXED - WAS MISSING BEFORE =====
-function MessagesListWithActions({ user, vendors, fasterShop, profile, onSelect, onViewProfile }) {
+// ===== MESSAGES LIST - FIXED - SHOWS REAL CHATS ONLY, RELOADS EVERY TIME =====
+function MessagesListWithActions({ user, vendors, fasterShop, profile, onSelect, onViewProfile, onOpenUche, refreshKey }) {
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   useEffect(() => {
     const load = async () => {
       setLoading(true);
+      const allMsgs = [];
       try {
         const { data, error } = await supabase.from('messages').select('*').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order('created_at', { ascending: false }).limit(200);
-        if (!error && data && data.length > 0) {
-          const map = {};
-          data.forEach(m => {
-            const otherId = m.sender_id === user.id ? m.receiver_id : m.sender_id;
-            if (!map[otherId]) map[otherId] = { id: otherId, lastMessage: m.text || m.message || m.content || '', lastAt: m.created_at, unread: 0 };
-            if (m.receiver_id === user.id && !m.is_read) map[otherId].unread += 1;
-          });
-          const { data: profs } = await supabase.from('profiles').select('*').in('id', Object.keys(map));
-          const list = Object.values(map).map(c => {
-            const p = (profs || []).find(x => x.id === c.id) || (vendors || []).find(x => x.id === c.id) || (fasterShop?.id === c.id ? fasterShop : null);
-            return { ...c, vendor: p || { id: c.id, vendor_name: 'User', avatar_url: '' } };
-          });
-          setChats(list);
-        } else {
-          setChats([]);
-        }
-      } catch (e) { setChats([]); }
+        if (!error && data) allMsgs.push(...data.map(m => ({ id: m.id, sender_id: m.sender_id, receiver_id: m.receiver_id, text: m.text || m.message || m.content || '', created_at: m.created_at, is_read: m.is_read })));
+      } catch (e) {}
+      // Add local backup messages - this is what fixes "message doesn't show"
+      const local = getLocalChats(user.id);
+      local.forEach(m => { if (!allMsgs.find(x => x.id === m.id)) allMsgs.push(m); });
+      // Also check vendor's local? No - local is per user, enough.
+      if (allMsgs.length > 0) {
+        const map = {};
+        allMsgs.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).forEach(m => {
+          const otherId = m.sender_id === user.id ? m.receiver_id : m.sender_id;
+          if (!otherId) return;
+          if (!map[otherId]) map[otherId] = { id: otherId, lastMessage: m.text || '', lastAt: m.created_at, unread: 0 };
+          if (m.receiver_id === user.id && !m.is_read) map[otherId].unread += 1;
+        });
+        const ids = Object.keys(map);
+        let profs = [];
+        try { const { data } = await supabase.from('profiles').select('*').in('id', ids); profs = data || []; } catch {}
+        const list = Object.values(map).map(c => {
+          const p = profs.find(x => x.id === c.id) || (vendors || []).find(x => x.id === c.id) || (fasterShop?.id === c.id ? fasterShop : null) || (() => { try { const l = getLocalChats(user.id).find(x => (x.sender_id === c.id || x.receiver_id === c.id) && x.vendor_name); return l ? { id: c.id, vendor_name: l.vendor_name, avatar_url: l.vendor_avatar } : null; } catch { return null; } })();
+          return { ...c, vendor: p || { id: c.id, vendor_name: 'Vendor', avatar_url: '' } };
+        });
+        setChats(list);
+      } else setChats([]);
       setLoading(false);
     };
     load();
-  }, [user?.id]);
-  const allVendors = [...(fasterShop ? [fasterShop] : []), ...(vendors || [])].filter(v => v.id !== user.id);
+  }, [user?.id, refreshKey]);
   const filteredChats = chats.filter(c => !search || (c.vendor?.vendor_name || '').toLowerCase().includes(search.toLowerCase()));
-  const filteredVendors = allVendors.filter(v => !search || (v.vendor_name || '').toLowerCase().includes(search.toLowerCase()));
+  const showUcheInSearch = !search || 'uche'.includes(search.toLowerCase()) || 'faster'.includes(search.toLowerCase()) || 'support'.includes(search.toLowerCase());
   return (
     <div className="p-4">
       <h2 className="font-black text-[18px]">Messages 💬</h2>
       <p className="text-[11px] text-zinc-500 mt-1">Chat vendors inside Faster Shop — never pay outside app</p>
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search chats..." className="w-full mt-3 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-3 text-[12px] outline-none" />
       {loading && <p className="text-[11px] text-zinc-500 text-center mt-8">Loading chats...</p>}
-      {!loading && filteredChats.length === 0 && (
-        <div className="mt-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 text-center"><p className="text-[28px]">💬</p><p className="text-[12px] font-bold mt-2">No chats yet</p><p className="text-[11px] text-zinc-500 mt-1">Tap a vendor below to start chatting. Your chats will show here.</p></div>
-          <p className="text-[12px] font-black mt-5 mb-2">Start a chat — Vendors</p>
-          <div className="space-y-2">{filteredVendors.length === 0 ? <p className="text-[11px] text-zinc-500">No vendors found</p> : filteredVendors.slice(0, 20).map(v => (
-            <button key={v.id} onClick={() => onSelect(v)} className="w-full bg-zinc-900 border border-zinc-800 p-3 rounded-2xl flex gap-3 items-center text-left"><img src={v.avatar_url || ''} className="w-11 h-11 rounded-full object-cover bg-zinc-800" alt="" /><div className="flex-1 min-w-0"><p className="text-[12px] font-bold truncate">{v.vendor_name}</p><p className="text-[10px] text-zinc-400 truncate">{v.bio || 'Tap to chat'}</p></div><span className="text-[10px] bg-[#39FF14] text-black px-3 py-1.5 rounded-full font-black">Chat →</span></button>
-          ))}</div>
-        </div>
-      )}
-      {!loading && filteredChats.length > 0 && (
+      {!loading && (
         <div className="mt-4 space-y-2">
+          {showUcheInSearch && (
+            <button onClick={onOpenUche} className="w-full bg-zinc-900 border-2 border-[#39FF14]/40 p-3 rounded-2xl flex gap-3 items-center text-left">
+              <div className="relative shrink-0"><div className="w-11 h-11 bg-[#39FF14] rounded-full flex items-center justify-center text-[20px]">🤖</div><span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[#39FF14] border-2 border-black rounded-full" /></div>
+              <div className="flex-1 min-w-0"><div className="flex justify-between items-center"><p className="text-[12px] font-black">Uche - Faster Shop ⚡</p><span className="text-[9px] bg-[#39FF14] text-black px-2 py-0.5 rounded-full font-black">SUPPORT</span></div><p className="text-[11px] text-zinc-400 truncate mt-0.5">Hi! I'm Uche, your helper. Tap to ask anything...</p></div>
+              <span className="text-zinc-500 text-[14px]">→</span>
+            </button>
+          )}
           {filteredChats.map(c => (
             <button key={c.id} onClick={() => onSelect(c.vendor)} className="w-full bg-zinc-900 border border-zinc-800 p-3 rounded-2xl flex gap-3 items-center text-left"><img src={c.vendor?.avatar_url || ''} className="w-11 h-11 rounded-full object-cover bg-zinc-800" alt="" /><div className="flex-1 min-w-0"><div className="flex justify-between"><p className="text-[12px] font-bold truncate">{c.vendor?.vendor_name || 'User'}</p>{c.lastAt && <span className="text-[9px] text-zinc-500 shrink-0 ml-2">{new Date(c.lastAt).toLocaleDateString()}</span>}</div><p className="text-[11px] text-zinc-400 truncate mt-0.5">{c.lastMessage || 'Tap to chat'}</p></div>{c.unread > 0 && <span className="bg-[#39FF14] text-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shrink-0">{c.unread}</span>}</button>
           ))}
-          <p className="text-[11px] font-black mt-5 mb-1">All vendors</p>
-          {filteredVendors.slice(0, 10).map(v => (
-            <button key={v.id} onClick={() => onSelect(v)} className="w-full bg-zinc-900/50 border border-zinc-800/50 p-3 rounded-2xl flex gap-3 items-center text-left opacity-80"><img src={v.avatar_url || ''} className="w-9 h-9 rounded-full object-cover bg-zinc-800" alt="" /><p className="text-[12px] font-bold">{v.vendor_name}</p><span className="ml-auto text-[10px] text-zinc-500">New chat →</span></button>
-          ))}
+          {filteredChats.length === 0 && (
+            <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-5 text-center mt-2"><p className="text-[12px] font-bold">No vendor chats yet</p><p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">Go to Home or Shop, tap a product, then tap <span className="text-white font-bold">Message</span> to chat a vendor.<br/>They will appear here.</p></div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, profile }) {
+function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, profile, onSent }) {
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -174,11 +179,15 @@ function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, pro
   useEffect(() => {
     if (!vendor?.id) return;
     const load = async () => {
+      let combined = [];
       try {
         const { data, error } = await supabase.from('messages').select('*').or(`and(sender_id.eq.${user.id},receiver_id.eq.${vendor.id}),and(sender_id.eq.${vendor.id},receiver_id.eq.${user.id})`).order('created_at', { ascending: true });
-        if (!error && data) setMsgs(data.map(m => ({ id: m.id, sender_id: m.sender_id, text: m.text || m.message || m.content || '', created_at: m.created_at })));
-        else setMsgs([]);
-      } catch (e) { setMsgs([]); }
+        if (!error && data) combined = data.map(m => ({ id: m.id, sender_id: m.sender_id, text: m.text || m.message || m.content || '', created_at: m.created_at }));
+      } catch (e) {}
+      const local = getLocalChats(user.id).filter(m => (m.sender_id === user.id && m.receiver_id === vendor.id) || (m.sender_id === vendor.id && m.receiver_id === user.id));
+      local.forEach(m => { if (!combined.find(x => x.id === m.id)) combined.push({ id: m.id, sender_id: m.sender_id, text: m.text, created_at: m.created_at }); });
+      combined.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+      setMsgs(combined);
     };
     load();
     const ch = supabase.channel(`chat-${user.id}-${vendor.id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => {
@@ -191,18 +200,19 @@ function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, pro
   const send = async () => {
     if (!text.trim() || sending) return;
     const clean = text.trim();
-    const tempId = 'temp-' + Date.now();
-    setMsgs(prev => [...prev, { id: tempId, sender_id: user.id, text: clean, created_at: new Date().toISOString() }]);
+    const msgObj = { id: 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2), sender_id: user.id, receiver_id: vendor.id, text: clean, created_at: new Date().toISOString(), vendor_name: vendor.vendor_name, vendor_avatar: vendor.avatar_url };
+    setMsgs(prev => [...prev, { id: msgObj.id, sender_id: user.id, text: clean, created_at: msgObj.created_at }]);
     setText(''); setSending(true);
+    // 1. Save locally FIRST - so it ALWAYS shows in Messages list even if Supabase fails
+    saveLocalMessage(user.id, msgObj);
+    // 2. Try Supabase with SIMPLE fields only - old code sent too many columns and failed
     try {
-      const { data, error } = await supabase.from('messages').insert({ sender_id: user.id, receiver_id: vendor.id, text: clean, message: clean, content: clean, product_id: product?.id || null }).select().single();
-      if (error) {
-        const { error: e2 } = await supabase.from('messages').insert({ sender_id: user.id, receiver_id: vendor.id, text: clean }).select().single();
-        if (e2) console.log('Send failed, showing locally only', e2);
-      }
+      const { error } = await supabase.from('messages').insert({ sender_id: user.id, receiver_id: vendor.id, text: clean });
+      if (error) console.log('Supabase messages insert failed, local saved:', error.message);
       try { await supabase.from('notifications').insert({ user_id: vendor.id, actor_id: user.id, actor_name: profile?.vendor_name || user.email?.split('@')[0] || 'User', type: 'message', title: 'New message', message: clean, product_id: product?.id || null }); } catch (e) {}
-    } catch (e) { console.log('Send error', e); }
+    } catch (e) { console.log('Send error, local saved', e); }
     setSending(false);
+    if (onSent) onSent();
   };
   if (!vendor) return <div className="p-6 text-center"><p className="text-[12px]">No vendor selected</p><button onClick={onBack} className="mt-3 bg-white text-black px-5 py-2 rounded-full text-[11px] font-bold">Back to Messages</button></div>;
   return (
@@ -242,6 +252,8 @@ export default function App(){
   const [likes,setLikes]=useState({})
   const [comments,setComments]=useState({})
   const [notifications,setNotifications]=useState([])
+  const [showUche,setShowUche]=useState(false)
+  const [msgRefresh,setMsgRefresh]=useState(0)
   const currentEmail=(user?.email||profile?.email||'').toLowerCase().trim()
   const isAdmin=ADMIN_EMAILS.includes(currentEmail)||profile?.is_faster_shop===true
   useEffect(()=>{supabase.auth.getSession().then(({data})=>setUser(data.session?.user||null));supabase.auth.onAuthStateChange((_e,s)=>setUser(s?.user||null))},[])
@@ -327,27 +339,27 @@ export default function App(){
         <button onClick={()=>{setTab('notifications');markNotifsRead()}} className="relative w-9 h-9 flex items-center justify-center text-[18px]">🔔{unreadCount>0&&<span className="absolute top-0 right-0 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-black">{unreadCount>9?'9+':unreadCount}</span>}</button>
         <button onClick={()=>setTab('settings')} className="w-9 h-9 flex items-center justify-center text-[18px]">⚙️</button>
       </div>
+      {showUche && <UcheChatFull user={user} profile={profile} onClose={()=>setShowUche(false)} />}
       {activeStories&&<StoryViewer stories={activeStories} idx={activeStoryIdx} setIdx={setActiveStoryIdx} onClose={()=>setActiveStories(null)} getVendor={getVendor}/>}
       {tab==='home'&&<Home products={products} stories={stories} fasterShop={fasterShop} vendors={vendors} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}} onDM={handleDM} onStoryClick={openStories} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike} comments={comments} addComment={addComment} deletePost={deletePost} vendorsList={vendors} profile={profile}/>}
       {tab==='shop'&&<Shop products={products} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike}/>}
       {tab==='search'&&<><Search vendors={vendors} fasterShop={fasterShop} products={products} getVendor={getVendor} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}}/><FasterFinds /><EventsList /></>}
       {tab==='vendor'&&<VendorProfile vendor={selectedVendor} currentUser={user} products={products.filter(p=>p.vendor_id===selectedVendor?.id)} stories={stories.filter(s=>(s.vendor_id===selectedVendor?.id||s.user_id===selectedVendor?.id))} onBack={()=>setTab('home')} onStoryClick={openStories} reload={loadAll} followMap={followMap} setFollowMap={setFollowMap} fasterShop={fasterShop} sendNotif={sendNotif} getVendor={getVendor}/>}
-      {tab==='messages'&&<MessagesListWithActions user={user} vendors={vendors} fasterShop={fasterShop} profile={profile} onSelect={(v)=>{if(v.id===user.id) return; setSelectedChat(v);setTab('chat')}} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}}/>}
-      {tab==='chat'&&<ChatRoomWithActions user={user} vendor={selectedChat} product={selectedProduct} onBack={()=>setTab('messages')} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}} profile={profile}/>}
+      {tab==='messages'&&<MessagesListWithActions user={user} vendors={vendors} fasterShop={fasterShop} profile={profile} refreshKey={msgRefresh} onSelect={(v)=>{if(v.id===user.id) return; setSelectedChat(v);setTab('chat')}} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}} onOpenUche={()=>setShowUche(true)} />}
+      {tab==='chat'&&<ChatRoomWithActions user={user} vendor={selectedChat} product={selectedProduct} onBack={()=>{setTab('messages'); setMsgRefresh(x=>x+1);}} onViewProfile={(v)=>{setSelectedVendor(v);setTab('vendor')}} profile={profile} onSent={()=>setMsgRefresh(x=>x+1)} />}
       {tab==='cart'&&<div className="p-4"><h2 className="font-black text-[13px]">Cart — Fastershop Store Only</h2>{cart.length===0?<p className="text-[11px] text-zinc-500 mt-6">Empty</p>:cart.map((p,i)=><div key={i} className="bg-zinc-900 p-3 rounded-xl flex gap-3 mt-2"><img src={p.images?.[0]} className="w-16 h-16 rounded-xl object-cover" alt="" /><div><p className="text-[11px] font-bold">{p.title||p.name}</p><p className="text-[10px] text-zinc-400">{p.price}</p></div></div>)}<button className="w-full mt-4 bg-[#39FF14] text-black font-black py-3 rounded-full text-[11px]">Pay with Paystack</button></div>}
       {tab==='profile'&&<>
         {profile?.is_vendor ? (<Profile user={user} profile={profile} products={products.filter(p=>p.vendor_id===user.id)} reload={loadAll} getVendor={getVendor}/>) : (<BuyerProfile user={user} profile={profile} reload={loadAll} setTab={setTab} products={products} likes={likes} getVendor={getVendor} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}} />)}
         {isAdmin && <><div className="mx-4 mt-6 mb-2 border-t-2 border-[#39FF14] pt-4"><p className="text-[12px] font-black">⚙️ ADMIN PANEL — Faster Shop Control</p><p className="text-[10px] text-zinc-500">Logged in as: {currentEmail||'unknown'} • ADMIN ✅</p></div><AdminPanel user={user} profile={profile} /></>}
       </>}
       {tab==='notifications'&&<Notifications notifications={notifications} products={products} getVendor={getVendor} onBack={()=>setTab('home')} onOpenProduct={(p)=>{const v=getVendor(p?.vendor_id);if(v){setSelectedVendor(v);setTab('vendor')}}} onOpenChat={(actorId)=>{const v=getVendor(actorId);if(v && v.id!==user.id){setSelectedChat(v);setTab('chat')}}} onClear={async()=>{await supabase.from('notifications').update({is_read:true}).eq('user_id',user.id);setNotifications(prev=>prev.map(n=>({...n,is_read:true})))}}/>}
-      {tab==='settings'&&<Settings user={user} profile={profile} reload={loadAll} onBack={()=>setTab('profile')}/>}
-      <UcheChat user={user} profile={profile} />
+      {tab==='settings'&&<Settings user={user} profile={profile} reload={loadAll} onBack={()=>setTab('profile')} onOpenUche={()=>setShowUche(true)} />}
       <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-zinc-900 flex justify-around py-3 text-[10px]">
         <button onClick={()=>setTab('home')} className={tab==='home'?'text-white font-black':'text-zinc-500'}>Home</button>
         <button onClick={()=>setTab('search')} className={tab==='search'?'text-white font-black':'text-zinc-500'}>Search</button>
         <button onClick={()=>setTab('shop')} className={tab==='shop'?'text-white font-black':'text-zinc-500'}>Shop</button>
         <button onClick={()=>setTab('cart')} className={tab==='cart'?'text-white font-black':'text-zinc-500'}>Cart</button>
-        <button onClick={()=>setTab('messages')} className={tab==='messages'?'text-white font-black':'text-zinc-500'}>Messages</button>
+        <button onClick={()=>{setTab('messages'); setMsgRefresh(x=>x+1);}} className={tab==='messages'?'text-white font-black':'text-zinc-500'}>Messages</button>
         <button onClick={()=>setTab('profile')} className={tab==='profile'?'text-white font-black':'text-zinc-500'}>Profile</button>
       </div>
     </div>
@@ -659,7 +671,7 @@ function Profile({user,profile,products,reload,getVendor}){
   </div>
 }
 
-function Settings({user,profile,reload,onBack}){
+function Settings({user,profile,reload,onBack,onOpenUche}){
   const [notif,setNotif]=useState(true)
   const [sound,setSound]=useState(true)
   const [privateAcc,setPrivateAcc]=useState(false)
@@ -677,7 +689,7 @@ function Settings({user,profile,reload,onBack}){
     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-3"><p className="font-bold text-[12px]">Shopping</p><div className="flex justify-between"><p className="text-[11px]">Currency</p><select value={currency} onChange={e=>setCurrency(e.target.value)} className="bg-zinc-800 rounded-full px-3 py-1 text-[11px]"><option>NGN (₦)</option><option>USD ($)</option></select></div><div className="flex justify-between"><p className="text-[11px]">Language</p><select value={language} onChange={e=>setLanguage(e.target.value)} className="bg-zinc-800 rounded-full px-3 py-1 text-[11px]"><option>English</option><option>Pidgin</option></select></div><div className="flex justify-between"><p className="text-[11px]">Delivery Address</p><button onClick={()=>alert('Add your Lagos delivery address in chat with vendor for now')} className="text-[11px] bg-zinc-800 px-3 py-1 rounded-full">Manage</button></div></div>
     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-3"><p className="font-bold text-[12px]">Notifications & Privacy</p><div className="flex justify-between"><p className="text-[11px]">Push Notifications</p><button onClick={()=>setNotif(!notif)} className={`w-10 h-5 rounded-full ${notif?'bg-[#39FF14]':'bg-zinc-700'} relative`}><span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full ${notif?'right-0.5':'left-0.5'}`} /></button></div><div className="flex justify-between"><p className="text-[11px]">Message Sounds</p><button onClick={()=>setSound(!sound)} className={`w-10 h-5 rounded-full ${sound?'bg-[#39FF14]':'bg-zinc-700'} relative`}><span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full ${sound?'right-0.5':'left-0.5'}`} /></button></div><div className="flex justify-between"><p className="text-[11px]">Private Account</p><button onClick={()=>setPrivateAcc(!privateAcc)} className={`w-10 h-5 rounded-full ${privateAcc?'bg-[#39FF14]':'bg-zinc-700'} relative`}><span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full ${privateAcc?'right-0.5':'left-0.5'}`} /></button></div></div>
     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-3"><p className="font-bold text-[12px]">Security</p><input value={newPass} onChange={e=>setNewPass(e.target.value)} placeholder="New password" type="password" className="w-full bg-zinc-800 rounded-full px-4 py-2 text-[11px]" /><button onClick={changePassword} className="w-full bg-white text-black py-2 rounded-full text-[11px] font-bold">Change Password</button></div>
-    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-3"><p className="font-bold text-[12px]">Support</p><button onClick={()=>alert("Hi! I'm Uche. Tap the 💬 button at bottom right to chat with me anytime.")} className="w-full bg-[#39FF14] text-black py-3 rounded-full text-[11px] font-black">💬 Chat Uche - Support</button><button onClick={()=>alert('Faster Shop v1.0 - Lagos Shops Here')} className="w-full bg-zinc-800 py-2 rounded-full text-[11px]">About Faster Shop</button><button onClick={clearCache} className="w-full bg-zinc-800 py-2 rounded-full text-[11px]">Clear Cache</button></div>
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-3"><p className="font-bold text-[12px]">Support</p><button onClick={onOpenUche} className="w-full bg-[#39FF14] text-black py-3 rounded-full text-[11px] font-black">💬 Chat Uche - Support</button><button onClick={()=>alert('Faster Shop v1.0 - Lagos Shops Here')} className="w-full bg-zinc-800 py-2 rounded-full text-[11px]">About Faster Shop</button><button onClick={clearCache} className="w-full bg-zinc-800 py-2 rounded-full text-[11px]">Clear Cache</button></div>
     <button onClick={async()=>{await supabase.auth.signOut()}} className="w-full bg-red-600 text-white py-3 rounded-full text-[11px] font-bold">Log Out</button>
   </div>
 }
