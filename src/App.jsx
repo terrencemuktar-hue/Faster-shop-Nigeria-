@@ -1,3 +1,4 @@
+import { enablePush } from './lib/push';
 import EventsList from './components/EventsList';
 import FasterFinds from './components/FasterFinds';
 import AdminPanel from './components/AdminPanel';
@@ -501,6 +502,7 @@ export default function App(){
   }
   if(!user) return (
     <div className="relative min-h-screen bg-black text-white overflow-hidden">
+    <button onClick={enablePush} style={{background:'#000',color:'#fff',padding:'10px 16px',borderRadius:'10px',cursor:'pointer',margin:'10px'}}>🔔 Turn On Notifications</button>
       <ClothesRain />
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6 py-10">
         <div className="w-12 h-12 bg-white text-black font-black flex items-center justify-center rounded-xl">F</div>
