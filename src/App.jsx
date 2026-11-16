@@ -1,4 +1,4 @@
-import { enablePush } from './lib/push';
+import { enablePush } from './lib/push'; 
 import EventsList from './components/EventsList';
 import FasterFinds from './components/FasterFinds';
 import AdminPanel from './components/AdminPanel';
@@ -289,6 +289,7 @@ function ChatRoomWithActions({ user, vendor, product, onBack, onViewProfile, pro
         <button onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }} className="w-9 h-9 text-[20px] font-black">⋮</button>
         {showMenu && (<div className="absolute right-0 top-10 z-30 w-[200px] bg-zinc-800 border border-zinc-700 rounded-2xl overflow-hidden" onClick={e => e.stopPropagation()}><button onClick={() => { setShowMenu(false); onViewProfile && onViewProfile(vendor); }} className="w-full text-left px-4 py-3 text-[12px] border-b border-zinc-700">👤 View Profile</button><button onClick={giveStar} className="w-full text-left px-4 py-3 text-[12px] border-b border-zinc-700">⭐ Give Star - Confirm Delivery</button><button onClick={deleteChat} className="w-full text-left px-4 py-3 text-[12px] text-red-400 font-bold">🗑️ Delete Chat</button></div>)}
       </div>
+      
       <div className="mx-3 mt-3 bg-[#FFD700]/10 border border-[#FFD700]/30 rounded-2xl p-3 flex gap-2 items-center"><span className="text-[20px]">⭐</span><div className="flex-1"><p className="text-[11px] font-bold">Received your package from {vendor.vendor_name}?</p><p className="text-[10px] text-zinc-400">Tap ⭐ to confirm delivery. It adds to their rating for Vendor of the Year.</p></div><button onClick={giveStar} className={`px-4 py-2 rounded-full text-[11px] font-black shrink-0 ${starredToday ? 'bg-zinc-800 text-zinc-400' : 'bg-[#FFD700] text-black'}`}>{starredToday ? 'Starred ✓' : 'Give ⭐'}</button></div>
       {product && (<div className="mx-3 mt-3 bg-zinc-900 border border-zinc-800 rounded-2xl p-2.5 flex gap-3 items-center"><img loading="lazy" decoding="async" src={product.images?.[0] || ''} className="w-12 h-12 rounded-xl object-cover bg-zinc-800" alt="" /><div><p className="text-[11px] font-bold">{product.title || product.name}</p><p className="text-[10px] text-[#39FF14] font-black">₦{product.price}</p></div></div>)}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -520,6 +521,7 @@ export default function App(){
         <button onClick={()=>{setTab('notifications');markNotifsRead()}} className="relative w-9 h-9 flex items-center justify-center text-[18px]">🔔{unreadCount>0&&<span className="absolute top-0 right-0 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-black">{unreadCount>9?'9+':unreadCount}</span>}</button>
         <button onClick={()=>setTab('settings')} className="w-9 h-9 flex items-center justify-center text-[18px]">⚙️</button>
       </div>
+      <button onClick={enablePush} style={{display:'block', width:'calc(100% - 32px)', margin:'12px auto', background:'#39FF14', color:'#000', padding:'14px', borderRadius:'999px', fontWeight:'900', fontSize:'13px', cursor:'pointer'}}>🔔 Turn On Notifications - Tap to Allow</button>
       {showUche && <UcheChatFull user={user} profile={profile} onClose={()=>setShowUche(false)} />}
       {activeStories&&<StoryViewer stories={activeStories} idx={activeStoryIdx} setIdx={setActiveStoryIdx} onClose={()=>setActiveStories(null)} getVendor={getVendor}/>}
       {tab==='home'&&<Home products={products} stories={stories} fasterShop={fasterShop} vendors={vendors} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} onOpenVendor={(v)=>{setSelectedVendor(v);setTab('vendor')}} onDM={handleDM} onStoryClick={openStories} getVendor={getVendor} user={user} likes={likes} toggleLike={toggleLike} comments={comments} addComment={addComment} deletePost={deletePost} vendorsList={vendors} profile={profile} onAddToCart={addToCart} />}
